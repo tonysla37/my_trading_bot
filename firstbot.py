@@ -43,7 +43,7 @@ accountName = ''
 pairSymbol = 'BTC/USD'
 fiatSymbol = 'USD'
 cryptoSymbol = 'BTC'
-myTruncate = 4
+myTruncate = 5
 risk = 0.03
 
 #client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
