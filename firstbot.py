@@ -28,16 +28,28 @@ def truncate(n, decimals=0):
     return str(r)
 
 def buyCondition(fiatAmount, values):
-  if float(fiatAmount) > 5 and df['EMA28'].iloc[-2] > df['EMA48'].iloc[-2] and df['STOCH_RSI'].iloc[-2] < 0.8:
+  if float(fiatAmount) > 5 and df['EMA1'].iloc[-2] > df['EMA2'].iloc[-2] and df['STOCH_RSI'].iloc[-2] < 0.8:
     return True
   else:
     return False
 
 def sellCondition(cryptoAmount, values):
-  if float(cryptoAmount) > 0.001 and df['EMA28'].iloc[-2] < df['EMA48'].iloc[-2] and df['STOCH_RSI'].iloc[-2] > 0.2:
+  if float(cryptoAmount) > 0.001 and df['EMA1'].iloc[-2] < df['EMA2'].iloc[-2] and df['STOCH_RSI'].iloc[-2] > 0.2:
     return True
   else:
     return False
+
+def get_chop(high, low, close, window):
+    tr1 = pd.DataFrame(high - low).rename(columns = {0:'tr1'})
+    tr2 = pd.DataFrame(abs(high - close.shift(1))).rename(columns = {0:'tr2'})
+    tr3 = pd.DataFrame(abs(low - close.shift(1))).rename(columns = {0:'tr3'})
+    frames = [tr1, tr2, tr3]
+    tr = pd.concat(frames, axis = 1, join = 'inner').dropna().max(axis = 1)
+    atr = tr.rolling(1).mean()
+    highh = high.rolling(window).max()
+    lowl = low.rolling(window).min()
+    ci = 100 * np.log10((atr.rolling(window).sum()) / (highh - lowl)) / np.log10(window)
+    return ci
 
 accountName = ''
 pairSymbol = 'BTC/USD'
@@ -70,9 +82,22 @@ df = df.set_index(df['timestamp'])
 df.index = pd.to_datetime(df.index, unit='ms')
 del df['timestamp']
 
-df['EMA28']=ta.trend.ema_indicator(df['close'], 28)
-df['EMA48']=ta.trend.ema_indicator(df['close'], 48)
-df['STOCH_RSI']=ta.momentum.stochrsi(df['close'])
+# Exponential Moving Average
+df['EMA1']=ta.trend.ema_indicator(close=df['close'], window=13)
+df['EMA2']=ta.trend.ema_indicator(close=df['close'], window=38)
+# Relative Strength Index (RSI)
+df['RSI'] =ta.momentum.rsi(close=df['close'], window=14)
+# MACD
+MACD = ta.trend.MACD(close=df['close'], window_fast=12, window_slow=26, window_sign=9)
+df['MACD'] = MACD.macd()
+df['MACD_SIGNAL'] = MACD.macd_signal()
+df['MACD_DIFF'] = MACD.macd_diff() #Histogramme MACD
+# Stochastic RSI
+df['STOCH_RSI'] = ta.momentum.stochrsi(close=df['close'], window=14, smooth1=3, smooth2=3) #Non moyenné 
+df['STOCH_RSI_D'] = ta.momentum.stochrsi_d(close=df['close'], window=14, smooth1=3, smooth2=3) #Orange sur TradingView
+df['STOCH_RSI_K'] =ta.momentum.stochrsi_k(close=df['close'], window=14, smooth1=3, smooth2=3) #Bleu sur TradingView
+# Choppiness index
+df['CHOP'] = get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)  
 
 print(df)
 
