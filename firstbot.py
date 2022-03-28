@@ -27,14 +27,14 @@ def truncate(n, decimals=0):
     r = floor(float(n)*10**decimals)/10**decimals
     return str(r)
 
-def buyCondition(row, previousRow):
-  if row['EMA1'] > row['EMA2']:
+def buyCondition(fiatAmount, values):
+  if float(fiatAmount) > 5 and df['EMA28'].iloc[-2] > df['EMA48'].iloc[-2] and df['STOCH_RSI'].iloc[-2] < 0.8:
     return True
   else:
     return False
 
-def sellCondition(row, previousRow):
-  if row['EMA2'] > row['EMA1']:
+def sellCondition(cryptoAmount, values):
+  if float(cryptoAmount) > 0.001 and df['EMA28'].iloc[-2] < df['EMA48'].iloc[-2] and df['STOCH_RSI'].iloc[-2] > 0.2:
     return True
   else:
     return False
@@ -86,7 +86,7 @@ print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cr
 
 
 
-if float(fiatAmount) > 5 and df['EMA28'].iloc[-2] > df['EMA48'].iloc[-2] and df['STOCH_RSI'].iloc[-2] < 0.8:
+if buyCondition(fiatAmount,df) == True :
     quantityBuy = truncate(tradeAmount, myTruncate)
     # buyOrder = client.place_order(
     #     market=pairSymbol,
@@ -96,8 +96,7 @@ if float(fiatAmount) > 5 and df['EMA28'].iloc[-2] > df['EMA48'].iloc[-2] and df[
     #     type='market')
     buyOrder = "Buy Order placed for that quantity :" + quantityBuy
     print(buyOrder)
-
-elif float(cryptoAmount) > 0.001 and df['EMA28'].iloc[-2] < df['EMA48'].iloc[-2] and df['STOCH_RSI'].iloc[-2] > 0.2:
+elif sellCondition(cryptoAmount, df) == True :
     quantitySell = truncate(tradeAmount, myTruncate)
     # buyOrder = client.place_order(
     #     market=pairSymbol,
