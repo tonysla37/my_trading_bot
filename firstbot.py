@@ -57,6 +57,8 @@ fiatSymbol = 'USD'
 cryptoSymbol = 'BTC'
 myTruncate = 5
 risk = 0.03
+buyReady = True
+sellReady = True
 
 #client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
 client = Client()
@@ -109,10 +111,21 @@ cryptoAmount = 0.5
 tradeAmount = float(fiatAmount)*risk/actualPrice
 print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount)
 
+minToken = 5/actualPrice
 
 
 if buyCondition(fiatAmount,df) == True :
+  if float(fiatAmount) > 5 and buyReady == True :
     quantityBuy = truncate(tradeAmount, myTruncate)
+
+    #You can define here at what price you buy
+    buyPrice = df['close']
+    #Define the price of you SL and TP or comment it if you don't want a SL or TP
+    stopLoss = buyPrice - 0.02 * buyPrice
+    takeProfit = buyPrice + 0.1 * buyPrice
+
+    # Define stoploss and takeprofit order !
+
     # buyOrder = client.place_order(
     #     market=pairSymbol,
     #     side="buy",
@@ -120,8 +133,11 @@ if buyCondition(fiatAmount,df) == True :
     #     size=quantityBuy,
     #     type='market')
     buyOrder = "Buy Order placed for that quantity :" + quantityBuy
+    buyReady = False
+    sellReady = True
     print(buyOrder)
 elif sellCondition(cryptoAmount, df) == True :
+  if float(cryptoAmount) > minToken and sellReady == True:
     quantitySell = truncate(tradeAmount, myTruncate)
     # buyOrder = client.place_order(
     #     market=pairSymbol,
@@ -130,7 +146,9 @@ elif sellCondition(cryptoAmount, df) == True :
     #     size=truncate(cryptoAmount, myTruncate),
     #     type='market')
     buyOrder = "Sell Order placed for that quantity :" + quantitySell
+    buyReady = True
+    sellReady = False
     print(buyOrder)
 else :
-      print("No opportunity to take")
+  print("No opportunity to take")
 
