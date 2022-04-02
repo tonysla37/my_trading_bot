@@ -21,31 +21,40 @@ if __name__ == '__main__':
   risk = 0.03
   buyReady = True
   sellReady = True
+  bench_mode = True
 
-  #client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
-  client = Client()
+  if bench_mode == True :
+    client = Client()
+    klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2021")
+    df = pd.DataFrame(klinesT, columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore' ])
+    fiatAmount = 1000
+    cryptoAmount = 0.5
 
-  #data = client.get_historical_data(
-  #    market_name=pairSymbol,
-  #    resolution=3600,
-  #    limit=1000,
-  #    start_time=float(
-  #    round(time.time()))-100*3600,
-  #    end_time=float(round(time.time())))
-  #df = pd.DataFrame(data)
+  else:
+    client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
+    data = client.get_historical_data(
+      market_name=pairSymbol,
+      resolution=3600,
+      limit=1000,
+      start_time=float(
+      round(time.time()))-100*3600,
+      end_time=float(round(time.time())))
+    df = pd.DataFrame(data)
+    fiatAmount = fx.getBalance(client, fiatSymbol)
+    cryptoAmount = fx.getBalance(client, cryptoSymbol)
 
-  klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2021")
-
-  df = pd.DataFrame(klinesT, columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore' ])
+  # Define Price Action
   df['close'] = pd.to_numeric(df['close'])
   df['high'] = pd.to_numeric(df['high'])
   df['low'] = pd.to_numeric(df['low'])
   df['open'] = pd.to_numeric(df['open'])
 
+  # Define timestamp
   df = df.set_index(df['timestamp'])
   df.index = pd.to_datetime(df.index, unit='ms')
   del df['timestamp']
 
+  ## Indicators
   # Exponential Moving Average
   df['EMA1']=ta.trend.ema_indicator(close=df['close'], window=13)
   df['EMA2']=ta.trend.ema_indicator(close=df['close'], window=38)
@@ -63,17 +72,15 @@ if __name__ == '__main__':
   # Choppiness index
   df['CHOP'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)  
 
-  print(df)
-
+  # Define variables from informations
   actualPrice = df['close'].iloc[-1]
-  # fiatAmount = fx.getBalance(client, fiatSymbol)
-  # cryptoAmount = fx.getBalance(client, cryptoSymbol)
-  fiatAmount = 1000
-  cryptoAmount = 0.5
   tradeAmount = float(fiatAmount)*risk/actualPrice
+  minToken = 5/actualPrice
+  quantity_to_trade = fx.define_quantity_to_trade(tradeAmount,myTruncate)
+
+  # Print relevant informations
+  print(df)
   print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount)
 
-  minToken = 5/actualPrice
-
-  quantity_to_trade = fx.define_quantity_to_trade(tradeAmount,myTruncate)
+  # Bot actions execution
   fx.trade_action(fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,quantity_to_trade)
