@@ -136,19 +136,13 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       
       buyReady = False
       sellReady = True
+      print('Buy price :',buyPrice, 'Stop loss :',stopLoss,'TP1 :', takeProfit_1,'TP2 :', takeProfit_2,'TP3 :', takeProfit_3)
+      print('Possible gain :',possible_gain,'Possible loss :',possible_loss, 'R :',R)
       print(buyOrder)
       print(sellOrder_SL)
       print(sellOrder_TP1)
       print(sellOrder_TP2)
       print(sellOrder_TP3)
-      print(buyPrice)
-      print(stopLoss)
-      print(takeProfit_1)
-      print(takeProfit_2)
-      print(takeProfit_3)
-      print(possible_gain)
-      print(possible_loss)
-      print(R)
 
   elif sellCondition(cryptoAmount, values) == True :
     if float(cryptoAmount) > minToken and sellReady == True:
