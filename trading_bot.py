@@ -18,6 +18,16 @@ if __name__ == '__main__':
   fiatSymbol = 'USD'
   cryptoSymbol = 'BTC'
   myTruncate = 5
+  protection ={}
+  protection["sl_level"] = 0.02
+  protection["tp1_level"] = 0.1
+  protection["tp2_level"] = 0.12
+  protection["tp3_level"] = 0.15
+  protection["sl_amount"] = 1
+  protection["tp1_amount"] = 0.5
+  protection["tp2_amount"] = 0.3
+  protection["tp3_amount"] = 0.2
+
   buyReady = True
   sellReady = True
   bench_mode = True
@@ -66,11 +76,11 @@ if __name__ == '__main__':
   MACD = ta.trend.MACD(close=df['close'], window_fast=12, window_slow=26, window_sign=9)
   df['MACD'] = MACD.macd()
   df['MACD_SIGNAL'] = MACD.macd_signal()
-  df['MACD_DIFF'] = MACD.macd_diff() #Histogramme MACD
+  df['MACD_DIFF'] = MACD.macd_diff() # Histogramme MACD
   # Stochastic RSI
-  df['STOCH_RSI'] = ta.momentum.stochrsi(close=df['close'], window=14, smooth1=3, smooth2=3) #Non moyenné 
-  df['STOCH_RSI_D'] = ta.momentum.stochrsi_d(close=df['close'], window=14, smooth1=3, smooth2=3) #Orange sur TradingView
-  df['STOCH_RSI_K'] =ta.momentum.stochrsi_k(close=df['close'], window=14, smooth1=3, smooth2=3) #Bleu sur TradingView
+  df['STOCH_RSI'] = ta.momentum.stochrsi(close=df['close'], window=14, smooth1=3, smooth2=3) # Non moyenné 
+  df['STOCH_RSI_D'] = ta.momentum.stochrsi_d(close=df['close'], window=14, smooth1=3, smooth2=3) # Orange sur TradingView
+  df['STOCH_RSI_K'] =ta.momentum.stochrsi_k(close=df['close'], window=14, smooth1=3, smooth2=3) # Bleu sur TradingView
   # Choppiness index
   df['CHOP'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)  
 
@@ -78,10 +88,12 @@ if __name__ == '__main__':
   actualPrice = df['close'].iloc[-1]
   tradeAmount = float(fiatAmount)*risk/actualPrice
   minToken = 5/actualPrice
+  position = (float(fiatAmount)*risk) / protection["sl_level"]
 
   # Print relevant informations
   print(df)
-  print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount)
+  print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount, 'trading position :',position)
+
 
   # Bot actions execution
-  fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate)
+  fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection)
