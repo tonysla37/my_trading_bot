@@ -18,10 +18,12 @@ if __name__ == '__main__':
   fiatSymbol = 'USD'
   cryptoSymbol = 'BTC'
   myTruncate = 5
-  risk = 0.03
   buyReady = True
   sellReady = True
   bench_mode = True
+  risk_level = "Mid"
+
+  risk= fx.define_risk(risk_level)
 
   if bench_mode == True :
     client = Client()
@@ -30,7 +32,7 @@ if __name__ == '__main__':
     fiatAmount = 1000
     cryptoAmount = 0.5
 
-  else:
+  elif bench_mode == False :
     client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
     data = client.get_historical_data(
       market_name=pairSymbol,
@@ -76,11 +78,10 @@ if __name__ == '__main__':
   actualPrice = df['close'].iloc[-1]
   tradeAmount = float(fiatAmount)*risk/actualPrice
   minToken = 5/actualPrice
-  quantity_to_trade = fx.define_quantity_to_trade(tradeAmount,myTruncate)
 
   # Print relevant informations
   print(df)
   print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount)
 
   # Bot actions execution
-  fx.trade_action(fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,quantity_to_trade)
+  fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate)
