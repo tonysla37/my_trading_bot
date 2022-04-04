@@ -73,26 +73,32 @@ def analyse_rsi(rsi):
     status = "ok"
   return status
 
-
-
+def analyse_ema(ema1,ema2):
+  if ema1 > ema2 :
+    status = "green"
+  else :
+    status = "red"
+  return status
 
 # Buy Algorithm
-def buyCondition(fiatAmount, values):
-  if float(fiatAmount) > 5 and values['EMA1'].iloc[-2] > values['EMA2'].iloc[-2] and values['STOCH_RSI'].iloc[-2] < 0.8:
+def buyCondition(fiatAmount, ema, rsi, stoch_rsi):
+  #if float(fiatAmount) > 5 and ema == "green" and rsi == "oversell" and stoch_rsi == "oversell":
+  if float(fiatAmount) > 5 and ema == "green" :
     return True
   else:
     return False
 
 # Sell Algorithm
-def sellCondition(cryptoAmount, values):
-  if float(cryptoAmount) > 0.001 and values['EMA1'].iloc[-2] < values['EMA2'].iloc[-2] and values['STOCH_RSI'].iloc[-2] > 0.2:
+def sellCondition(cryptoAmount, ema, rsi, stoch_rsi):
+  #if float(cryptoAmount) > 0.001 and ema == "red" and rsi == "overbuy" and stoch_rsi == "overbuy":
+  if float(cryptoAmount) > 0.001 and ema == "red" :
     return True
   else:
     return False
 
 # Trade function
-def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection):
-  if buyCondition(fiatAmount,values) == True :
+def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,ema,rsi,stoch_rsi):
+  if buyCondition(fiatAmount,ema,rsi,stoch_rsi) == True :
     if float(fiatAmount) > 5 and buyReady == True :
       #You can define here at what price you buy
       buyPrice = values['close'].iloc[-1]
@@ -173,7 +179,7 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       print(sellOrder_TP2)
       print(sellOrder_TP3)
 
-  elif sellCondition(cryptoAmount, values) == True :
+  elif sellCondition(cryptoAmount,ema,rsi,stoch_rsi) == True :
     if float(cryptoAmount) > minToken and sellReady == True:
       quantitySell = truncate(cryptoAmount, myTruncate)
 
@@ -195,3 +201,138 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       print(sellOrder)
   else :
     print("No opportunity to take")
+
+
+def backtest_strategy(values):
+
+  bt_df = values.copy()
+  bt_dt = None
+  bt_dt = pd.DataFrame(columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
+
+  # DATA
+  bt_usdt = 1000
+  bt_initalWallet = bt_usdt
+  bt_coin = 0
+  bt_wallet = 1000
+  bt_lastAth = 0
+  bt_previousRow = bt_df.iloc[0]
+  bt_makerFee = 0.0005
+  bt_takerFee = 0.0007
+  bt_stopLoss = 0
+  bt_takeProfit = 500000
+  bt_buyReady = True
+  bt_sellReady = True
+
+  for bt_index, bt_row in bt_df.iterrows():
+    bt_res_ema = analyse_ema(ema1=bt_row['EMA1'],ema2=bt_row['EMA2'])
+    bt_res_rsi = analyse_rsi(rsi=bt_row['RSI'])
+    bt_res_stoch_rsi = analyse_stoch_rsi(blue=bt_row['STOCH_RSI_K'],orange=bt_row['STOCH_RSI_D'])
+
+    #Buy market order
+    if buyCondition(bt_usdt, bt_res_ema, bt_res_rsi, bt_res_stoch_rsi) == True and bt_usdt > 0 and bt_buyReady == True:
+      #You can define here at what price you buy
+      bt_buyPrice = bt_row['close']
+      #Define the price of you SL and TP or comment it if you don't want a SL or TP
+      bt_stopLoss = bt_buyPrice - 0.02 * bt_buyPrice
+      bt_takeProfit = bt_buyPrice + 0.1 * bt_buyPrice
+      bt_coin = bt_usdt / bt_buyPrice
+      bt_fee = bt_takerFee * bt_coin
+      bt_coin = bt_coin - bt_fee
+      bt_usdt = 0
+      bt_wallet = bt_coin * bt_row['close']
+      if bt_wallet > bt_lastAth:
+        bt_lastAth = bt_wallet
+
+      # print("Buy COIN at",buyPrice,'$ the', index)
+      bt_myrow = {'date': bt_index,'position': "Buy", 'reason': 'Buy Market','price': bt_buyPrice,'frais': bt_fee*bt_row['close'],'fiat': bt_usdt,'coins': bt_coin,'wallet': bt_wallet,'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
+      bt_dt = bt_dt.append(bt_myrow,ignore_index=True)
+
+    #Stop Loss
+    elif bt_row['low'] < bt_stopLoss and bt_coin > 0:
+      bt_sellPrice = bt_stopLoss
+      bt_usdt = bt_coin * bt_sellPrice
+      bt_fee = bt_makerFee * bt_usdt
+      bt_usdt = bt_usdt - bt_fee
+      bt_coin = 0
+      bt_buyReady = False
+      bt_wallet = bt_usdt
+      if bt_wallet > bt_lastAth:
+        bt_lastAth = bt_wallet
+      # print("Sell COIN at Stop Loss",sellPrice,'$ the', index)
+      bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Stop Loss', 'price': bt_sellPrice, 'frais': bt_fee, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
+      bt_dt = bt_dt.append(bt_myrow,ignore_index=True)
+
+    #Take Profit
+    elif bt_row['high'] > bt_takeProfit and bt_coin > 0:
+      bt_sellPrice = bt_takeProfit
+      bt_usdt = bt_coin * bt_sellPrice
+      bt_fee = bt_makerFee * bt_usdt
+      bt_usdt = bt_usdt - bt_fee
+      bt_coin = 0
+      bt_buyReady = False
+      bt_wallet = bt_usdt
+      if bt_wallet > bt_lastAth:
+        bt_lastAth = bt_wallet
+      # print("Sell COIN at Take Profit Loss",sellPrice,'$ the', index)
+      bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Take Profit', 'price': bt_sellPrice, 'frais': bt_fee, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
+      bt_dt = bt_dt.append(bt_myrow,ignore_index=True) 
+
+      # Sell Market
+    elif sellCondition(bt_coin, bt_res_ema, bt_res_rsi, bt_res_stoch_rsi) == True:
+      bt_buyReady = True
+      if bt_coin > 0 and bt_sellReady == True:
+        bt_sellPrice = bt_row['close']
+        bt_usdt = bt_coin * bt_sellPrice
+        bt_frais = bt_takerFee * bt_usdt
+        bt_usdt = bt_usdt - bt_frais
+        bt_coin = 0
+        bt_wallet = bt_usdt
+        if bt_wallet > bt_lastAth:
+          bt_lastAth = bt_wallet
+        # print("Sell COIN at",sellPrice,'$ the', index)
+        bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Market', 'price': bt_sellPrice, 'frais': bt_frais, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
+        bt_dt = bt_dt.append(bt_myrow,ignore_index=True)
+
+    bt_previousRow = bt_row
+
+  #///////////////////////////////////////
+  print("Period : [" + str(bt_df.index[0]) + "] -> [" +str(bt_df.index[len(bt_df)-1]) + "]")
+  bt_dt = bt_dt.set_index(bt_dt['date'])
+  bt_dt.index = pd.to_datetime(bt_dt.index)
+  bt_dt['resultat'] = bt_dt['wallet'].diff()
+  bt_dt['resultat%'] = bt_dt['wallet'].pct_change()*100
+  bt_dt.loc[bt_dt['position']=='Buy','resultat'] = None
+  bt_dt.loc[bt_dt['position']=='Buy','resultat%'] = None
+
+  bt_dt['tradeIs'] = ''
+  bt_dt.loc[bt_dt['resultat']>0,'tradeIs'] = 'Good'
+  bt_dt.loc[bt_dt['resultat']<=0,'tradeIs'] = 'Bad'
+
+  bt_iniClose = bt_df.iloc[0]['close']
+  bt_lastClose = bt_df.iloc[len(bt_df)-1]['close']
+  bt_holdPorcentage = ((bt_lastClose - bt_iniClose)/bt_iniClose) * 100
+  bt_algoPorcentage = ((bt_wallet - bt_initalWallet)/bt_initalWallet) * 100
+  bt_vsHoldPorcentage = ((bt_algoPorcentage - bt_holdPorcentage)/bt_holdPorcentage) * 100
+
+  print("Starting balance : 1000 $")
+  print("Final balance :",round(bt_wallet,2),"$")
+  print("Performance vs US Dollar :",round(bt_algoPorcentage,2),"%")
+  print("Buy and Hold Performence :",round(bt_holdPorcentage,2),"%")
+  print("Performance vs Buy and Hold :",round(bt_vsHoldPorcentage,2),"%")
+  print("Number of negative trades : ",bt_dt.groupby('tradeIs')['date'].nunique()['Bad'])
+  print("Number of positive trades : ",bt_dt.groupby('tradeIs')['date'].nunique()['Good'])
+  print("Average Positive Trades : ",round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].sum()/bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].count(),2),"%")
+  print("Average Negative Trades : ",round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].sum()/bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].count(),2),"%")
+  bt_idbest = bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].idxmax()
+  bt_idworst = bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].idxmin()
+  print("Best trade +"+str(round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].max(),2)),"%, the ",bt_dt['date'][bt_idbest])
+  print("Worst trade",round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].min(),2),"%, the ",bt_dt['date'][bt_idworst])
+  print("Worst drawBack", str(100*round(bt_dt['drawBack'].min(),2)),"%")
+  print("Total fee : ",round(bt_dt['frais'].sum(),2),"$")
+  bt_reasons = bt_dt['reason'].unique()
+  for r in bt_reasons:
+    print(r+" number :",bt_dt.groupby('reason')['date'].nunique()[r])
+
+  bt_dt[['wallet','price']].plot(subplots=True, figsize=(20,10))
+  print('PLOT')
+  bt_dt

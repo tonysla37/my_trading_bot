@@ -55,18 +55,17 @@ if __name__ == '__main__':
     fiatAmount = fx.getBalance(client, fiatSymbol)
     cryptoAmount = fx.getBalance(client, cryptoSymbol)
 
-  # Define Price Action
-  df['close'] = pd.to_numeric(df['close'])
-  df['high'] = pd.to_numeric(df['high'])
-  df['low'] = pd.to_numeric(df['low'])
-  df['open'] = pd.to_numeric(df['open'])
-
   # Define timestamp
   df = df.set_index(df['timestamp'])
   df.index = pd.to_datetime(df.index, unit='ms')
   del df['timestamp']
 
   ## Indicators
+  # Define Price Action
+  df['close'] = pd.to_numeric(df['close'])
+  df['high'] = pd.to_numeric(df['high'])
+  df['low'] = pd.to_numeric(df['low'])
+  df['open'] = pd.to_numeric(df['open'])
   # Exponential Moving Average
   df['EMA1']=ta.trend.ema_indicator(close=df['close'], window=13)
   df['EMA2']=ta.trend.ema_indicator(close=df['close'], window=38)
@@ -84,6 +83,7 @@ if __name__ == '__main__':
   # Choppiness index
   df['CHOP'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)
 
+  res_ema = fx.analyse_ema(ema1=df['EMA1'].iloc[-1],ema2=df['EMA2'].iloc[-1])
   res_rsi = fx.analyse_rsi(rsi=df['RSI'].iloc[-1])
   res_stoch_rsi = fx.analyse_stoch_rsi(blue=df['STOCH_RSI_K'].iloc[-1],orange=df['STOCH_RSI_D'].iloc[-1])
 
@@ -97,8 +97,12 @@ if __name__ == '__main__':
   print(df)
   print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount, 'trading position :',position)
 
+  print('ema :',res_ema)
   print('rsi state :',res_rsi)
   print('stoch rsi state :',res_stoch_rsi)
 
   # Bot actions execution
-  fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection)
+  fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi)
+
+  if bench_mode == True :
+    fx.backtest_strategy(df)
