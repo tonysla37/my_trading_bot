@@ -47,6 +47,35 @@ def get_chop(high, low, close, window):
     ci = 100 * np.log10((atr.rolling(window).sum()) / (highh - lowl)) / np.log10(window)
     return ci
 
+def analyse_stoch_rsi(blue, orange):
+  pc_blue = float(blue) * 100
+  pc_orange = float(orange) * 100
+
+  if pc_blue <= 20 and pc_orange <= 20 :
+    status = "oversell"
+  elif pc_blue >= 80 and pc_orange >= 80 :
+    status = "overbuy"
+  elif pc_blue > pc_orange :
+    status = "ok"
+  else :
+      # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear
+    status = "bad"
+  
+  return status
+
+def analyse_rsi(rsi):
+  if rsi <= 30 :
+    status = "oversell"
+  elif rsi >= 70 :
+    status = "overbuy"
+  else :
+    # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear
+    status = "ok"
+  return status
+
+
+
+
 # Buy Algorithm
 def buyCondition(fiatAmount, values):
   if float(fiatAmount) > 5 and values['EMA1'].iloc[-2] > values['EMA2'].iloc[-2] and values['STOCH_RSI'].iloc[-2] < 0.8:
@@ -147,14 +176,19 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
   elif sellCondition(cryptoAmount, values) == True :
     if float(cryptoAmount) > minToken and sellReady == True:
       quantitySell = truncate(cryptoAmount, myTruncate)
-      # Define sell order
-      # sellOrder = client.place_order(
-      #     market=pairSymbol,
-      #     side="sell",
-      #     price=None,
-      #     size=quantitySell,
-      #     type='market')
-      sellOrder = "Sell Order placed for that quantity :" + quantitySell
+
+      # Request orders
+      if bench_mode == True :
+        sellOrder = "Sell Order placed for that quantity :" + quantitySell
+
+      elif bench_mode == False :
+        # Define sell order
+        sellOrder = client.place_order(
+            market=pairSymbol,
+            side="sell",
+            price=None,
+            size=quantitySell,
+            type='market')
 
       buyReady = True
       sellReady = False
