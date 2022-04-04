@@ -82,7 +82,10 @@ if __name__ == '__main__':
   df['STOCH_RSI_D'] = ta.momentum.stochrsi_d(close=df['close'], window=14, smooth1=3, smooth2=3) # Orange sur TradingView
   df['STOCH_RSI_K'] =ta.momentum.stochrsi_k(close=df['close'], window=14, smooth1=3, smooth2=3) # Bleu sur TradingView
   # Choppiness index
-  df['CHOP'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)  
+  df['CHOP'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)
+
+  res_rsi = fx.analyse_rsi(rsi=df['RSI'].iloc[-1])
+  res_stoch_rsi = fx.analyse_stoch_rsi(blue=df['STOCH_RSI_K'].iloc[-1],orange=df['STOCH_RSI_D'].iloc[-1])
 
   # Define variables from informations
   actualPrice = df['close'].iloc[-1]
@@ -94,6 +97,8 @@ if __name__ == '__main__':
   print(df)
   print('coin price :',actualPrice, 'usd balance', fiatAmount, 'coin balance :',cryptoAmount, 'trading position :',position)
 
+  print('rsi state :',res_rsi)
+  print('stoch rsi state :',res_stoch_rsi)
 
   # Bot actions execution
   fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection)
