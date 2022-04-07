@@ -38,6 +38,7 @@ if __name__ == '__main__':
   if bench_mode == True :
     client = Client()
     klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2021")
+    #klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2022")
     df = pd.DataFrame(klinesT, columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore' ])
     fiatAmount = 1000
     cryptoAmount = 0.5
@@ -102,7 +103,7 @@ if __name__ == '__main__':
   print('stoch rsi state :',res_stoch_rsi)
 
   # Bot actions execution
-  fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi)
+  #fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi)
 
   if bench_mode == True :
     fx.backtest_strategy(df)
