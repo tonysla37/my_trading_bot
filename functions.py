@@ -82,16 +82,16 @@ def analyse_ema(ema1,ema2):
 
 # Buy Algorithm
 def buyCondition(ema, rsi, stoch_rsi):
-  if ema == "green" and rsi == "oversell" and stoch_rsi == "oversell":
-  #if ema == "green" :
+  #if ema == "green" and rsi == "oversell" and stoch_rsi == "oversell":
+  if ema == "green" :
     return True
   else:
     return False
 
 # Sell Algorithm
 def sellCondition(ema, rsi, stoch_rsi):
-  if ema == "red" and rsi == "overbuy" and stoch_rsi == "overbuy":
-  #if ema == "red" :
+  #if ema == "red" and rsi == "overbuy" and stoch_rsi == "overbuy":
+  if ema == "red" :
     return True
   else:
     return False
