@@ -50,19 +50,23 @@ def get_chop(high, low, close, window):
 def analyse_macd(macd,signal,histogram):
   #€ Stratégie 1
   # histogram : différence entre les deux lignes MACD
-  if histogram > 0 :
-    trend = "buy"
-  if histogram < 0 :
-    trend = "sell"
-  return trend
+  # if histogram > 0 :
+  #   trend = "buy"
+  # elif histogram < 0 :
+  #   trend = "sell"
 
   ## Stratégie 2
   # Ligne de signal
   # achat quand la ligne de signal est négative et quand elle sort de l'histogramme en négatif
   # vente quand la ligne de signal est positive et quand elle sort de l'histogramme en positif
+  if signal < 0 and  signal < histogram :
+    trend = "buy"
+  elif signal > 0 and  signal > histogram :
+    trend = "sell"
 
   ## Stratégie 3
   # Chercher les divergences
+  return trend
 
 def analyse_stoch_rsi(blue, orange):
   pc_blue = float(blue) * 100
