@@ -47,6 +47,23 @@ def get_chop(high, low, close, window):
     ci = 100 * np.log10((atr.rolling(window).sum()) / (highh - lowl)) / np.log10(window)
     return ci
 
+def analyse_macd(macd,signal,histogram):
+  #€ Stratégie 1
+  # histogram : différence entre les deux lignes MACD
+  if histogram > 0 :
+    trend = "buy"
+  if histogram < 0 :
+    trend = "sell"
+  return trend
+
+  ## Stratégie 2
+  # Ligne de signal
+  # achat quand la ligne de signal est négative et quand elle sort de l'histogramme en négatif
+  # vente quand la ligne de signal est positive et quand elle sort de l'histogramme en positif
+
+  ## Stratégie 3
+  # Chercher les divergences
+
 def analyse_stoch_rsi(blue, orange):
   pc_blue = float(blue) * 100
   pc_orange = float(orange) * 100
@@ -78,6 +95,21 @@ def analyse_ema(ema1,ema2):
     status = "green"
   else :
     status = "red"
+  return status
+
+def analyse_bollinger(high,low,average,close):
+  long = 20
+  std_dev = 2 # Ecart type
+  # Quand les bornes haute et basse sont rapprochés alors risque de moment explosif
+  # Attendre la confirmation du mouvement
+  # 95% du temps la cloture se fait dans les bandes
+  # Sinon anomalie => retour à la normale (scalping -> momentum) ou engendre une tendance
+  if close > high :
+    trend = "bull"
+  if close < low :
+    trend = "bear"
+  else:
+    status = 
   return status
 
 # Buy Algorithm

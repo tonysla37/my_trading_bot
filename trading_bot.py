@@ -81,10 +81,11 @@ if __name__ == '__main__':
   # #Awesome Oscillator
   # df['AWESOME_OSCILLATOR'] = ta.momentum.awesome_oscillator(high=df['high'], low=df['low'], window1=5, window2=34)
   # # Kaufman’s Adaptive Moving Average (KAMA)
-  # df['KAMA'] = ta.momentum.kama(close=df['close'], window=10, pow1=2, pow2=30)
-
+  # df['KAMA1'] = ta.momentum.kama(close=ta.momentum.kama(close=ta.momentum.kama(close=df['close'], window=11, pow1=2, pow2=30), window=11, pow1=2, pow2=30), window=11, pow1=2, pow2=30)
+  # df['KAMA2'] = ta.momentum.kama(close=df['close'], window=15, pow1=2, pow2=30)
+  
   ## Trend (neutal, bull, bear), late
-  # MACD
+  # MACD : Connaitre la force du marché
   # bleu au dessus orange = bull
   # orange au dessus de bleu = bear
   MACD = ta.trend.MACD(close=df['close'], window_fast=12, window_slow=26, window_sign=9)
@@ -101,22 +102,35 @@ if __name__ == '__main__':
   # df['SUPER_TREND'] = superTrend['SUPERT_'+str(ST_length)+"_"+str(ST_multiplier)] #Valeur de la super trend
   # df['SUPER_TREND_DIRECTION'] = superTrend['SUPERTd_'+str(ST_length)+"_"+str(ST_multiplier)] #Retourne 1 si vert et -1 si rouge
   # Exponential Moving Average
-  df['EMA1']=ta.trend.ema_indicator(close=df['close'], window=13)
-  df['EMA2']=ta.trend.ema_indicator(close=df['close'], window=38)
-  # #Ichimoku
+  df['EMA1']=ta.trend.ema_indicator(close=df['close'], window=7)
+  df['EMA2']=ta.trend.ema_indicator(close=df['close'], window=30)
+  df['EMA3']=ta.trend.ema_indicator(close=df['close'], window=50)
+  df['EMA4']=ta.trend.ema_indicator(close=df['close'], window=100)
+  df['EMA5']=ta.trend.ema_indicator(close=df['close'], window=121)
+  df['EMA6']=ta.trend.ema_indicator(close=df['close'], window=200)
+  # # Ichimoku
   # df['KIJUN'] = ta.trend.ichimoku_base_line(high=df['high'], low=df['low'], window1=9, window2=26)
   # df['TENKAN'] = ta.trend.ichimoku_conversion_line(high=df['high'], low=df['low'], window1=9, window2=26)
   # df['SSA'] = ta.trend.ichimoku_a(high=df['high'], low=df['low'], window1=9, window2=26)
   # df['SSB'] = ta.trend.ichimoku_b(high=df['high'], low=df['low'], window2=26, window3=52)
+  # # Simple Moving Average
+  # df['SMA']=ta.trend.sma_indicator(df['close'], window=12)
+  # # Trix Indicator
+  # trixLength = 7
+  # trixSignal = 15
+  # df['TRIX'] = ta.trend.ema_indicator(ta.trend.ema_indicator(ta.trend.ema_indicator(close=df['close'], window=trixLength), window=trixLength), window=trixLength)
+  # df['TRIX_PCT'] = df["TRIX"].pct_change()*100
+  # df['TRIX_SIGNAL'] = ta.trend.sma_indicator(df['TRIX_PCT'],trixSignal)
+  # df['TRIX_HISTO'] = df['TRIX_PCT'] - df['TRIX_SIGNAL']
 
   ## Volatility
   # # Bollinger Bands
   # # peu de volatilité quand les bandes se resserent
   # # 
-  # BOL_BAND = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
-  # df['BOL_H_BAND'] = BOL_BAND.bollinger_hband() #Bande Supérieur
-  # df['BOL_L_BAND'] = BOL_BAND.bollinger_lband() #Bande inférieur
-  # df['BOL_MAVG_BAND'] = BOL_BAND.bollinger_mavg() #Bande moyenne
+  BOL_BAND = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
+  df['BOL_H_BAND'] = BOL_BAND.bollinger_hband() #Bande Supérieur
+  df['BOL_L_BAND'] = BOL_BAND.bollinger_lband() #Bande inférieur
+  df['BOL_MAVG_BAND'] = BOL_BAND.bollinger_mavg() #Bande moyenne
   # # Average True Range (ATR)
   # # très bas quand la volatilité est basse
   # # très haute quand la volatilité est haute
@@ -133,6 +147,9 @@ if __name__ == '__main__':
   res_ema = fx.analyse_ema(ema1=df['EMA1'].iloc[-1],ema2=df['EMA2'].iloc[-1])
   res_rsi = fx.analyse_rsi(rsi=df['RSI'].iloc[-1])
   res_stoch_rsi = fx.analyse_stoch_rsi(blue=df['STOCH_RSI_K'].iloc[-1],orange=df['STOCH_RSI_D'].iloc[-1])
+  res_bollinger = fx.analyse_bollinger(high=df['BOL_H_BAND'].iloc[-1],low=df['BOL_L_BAND'].iloc[-1],average=df['BOL_MAVG_BAND'].iloc[-1],close=df['close'].iloc[-1])
+  res_macd = fx.analyse_macd(macd=df['MACD'].iloc[-1],signal=df['MACD_SIGNAL'].iloc[-1],histogram=df['MACD_DIFF'].iloc[-1])
+
 
   # Define variables from informations
   actualPrice = df['close'].iloc[-1]
@@ -147,6 +164,7 @@ if __name__ == '__main__':
   print('ema :',res_ema)
   print('rsi state :',res_rsi)
   print('stoch rsi state :',res_stoch_rsi)
+  print('bollinger :',res_bollinger)
 
   # Bot actions execution
   #fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi)
