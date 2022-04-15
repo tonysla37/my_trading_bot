@@ -94,11 +94,13 @@ def analyse_rsi(rsi):
     status = "ok"
   return status
 
-def analyse_ema(ema1,ema2):
-  if ema1 > ema2 :
-    status = "green"
+def analyse_ema(ema1,ema2,ema3,ema4,ema5,ema6):
+  if ema1 > ema2 and ema2 > ema3 and ema3 > ema4 and ema4 > ema5 and ema5 > ema6 :
+    status = "good"
+  elif ema6 > ema1 :
+    status = "bad"
   else :
-    status = "red"
+    status = "neutral"
   return status
 
 def analyse_bollinger(high,low,average,close):
@@ -113,21 +115,33 @@ def analyse_bollinger(high,low,average,close):
   if close < low :
     trend = "bear"
   else:
-    status = 
+    status = "tbd"
   return status
 
-# Buy Algorithm
-def buyCondition(ema, rsi, stoch_rsi):
-  #if ema == "green" and rsi == "oversell" and stoch_rsi == "oversell":
-  if ema == "green" :
+# # Buy Algorithm
+# def buyCondition(ema, rsi, stoch_rsi):
+#   #if ema == "good" and rsi == "oversell" and stoch_rsi == "oversell":
+#   if ema == "good" :
+#     return True
+#   else:
+#     return False
+
+# # Sell Algorithm
+# def sellCondition(ema, rsi, stoch_rsi):
+#   #if ema == "bad" and rsi == "overbuy" and stoch_rsi == "overbuy":
+#   if ema == "bad" :
+#     return True
+#   else:
+#     return False
+
+def buyCondition(row, previousRow):
+  if row['EMA1'] > row['EMA2'] and row['EMA2'] > row['EMA3'] and row['EMA3'] > row['EMA4'] and row['EMA4'] > row['EMA5'] and row['EMA5'] > row['EMA6'] and row['STOCH_RSI']<0.82:
     return True
   else:
     return False
 
-# Sell Algorithm
-def sellCondition(ema, rsi, stoch_rsi):
-  #if ema == "red" and rsi == "overbuy" and stoch_rsi == "overbuy":
-  if ema == "red" :
+def sellCondition(row, previousRow):
+  if row['EMA6'] > row['EMA1'] and row['STOCH_RSI']>0.2:
     return True
   else:
     return False
@@ -143,22 +157,14 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       quantityBuy = truncate(tradeAmount, myTruncate)
       sl_level = protection["sl_level"]
       tp1_level = protection["tp1_level"]
-      tp2_level = protection["tp2_level"]
-      tp3_level = protection["tp3_level"]
       sl_amount = protection["sl_amount"]
       tp1_amount = protection["tp1_amount"]
-      tp2_amount = protection["tp2_amount"]
-      tp3_amount = protection["tp3_amount"]
 
       # Define the price of you SL and TP or comment it if you don't want a SL or TP
       stopLoss = buyPrice - sl_level * buyPrice
       takeProfit_1 = buyPrice + tp1_level * buyPrice
-      takeProfit_2 = buyPrice + tp2_level * buyPrice
-      takeProfit_3 = buyPrice + tp3_level * buyPrice
       sl_quantity = sl_amount * float(quantityBuy)
       tp1_quantity = tp1_amount * float(quantityBuy)
-      tp2_quantity = tp2_amount * float(quantityBuy)
-      tp3_quantity = tp3_amount * float(quantityBuy)
       possible_gain = (takeProfit_1 - buyPrice) * float(quantityBuy)
       possible_loss = (buyPrice - stopLoss) * float(quantityBuy)
       R = possible_gain / possible_loss
@@ -168,8 +174,6 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
         buyOrder = "Buy Order placed for that quantity : " + quantityBuy
         sellOrder_SL = "SL Order placed at price : " + str(stopLoss) + " And for this quantity : " + str(sl_quantity)
         sellOrder_TP1 = "TP1 Order placed at price : " + str(takeProfit_1) + " And for this quantity : " + str(tp1_quantity)
-        sellOrder_TP2 = "TP2 Order placed at price : " + str(takeProfit_2) + " And for this quantity : " + str(tp2_quantity)
-        sellOrder_TP3 = "TP3 Order placed at price : " + str(takeProfit_3) + " And for this quantity : " + str(tp3_quantity)
 
       elif bench_mode == False :
         # Define buy order
@@ -192,28 +196,14 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
             price=takeProfit_1,
             size=tp1_quantity,
             type='limit')
-        sellOrder_TP2 = client.place_order(
-            market=pairSymbol,
-            side="sell",
-            price=takeProfit_2,
-            size=tp2_quantity,
-            type='limit')
-        sellOrder_TP3 = client.place_order(
-            market=pairSymbol,
-            side="sell",
-            price=takeProfit_3,
-            size=tp3_quantity,
-            type='limit')
       
       buyReady = False
       sellReady = True
-      print('Buy price :',buyPrice, 'Stop loss :',stopLoss,'TP1 :', takeProfit_1,'TP2 :', takeProfit_2,'TP3 :', takeProfit_3)
+      print('Buy price :',buyPrice, 'Stop loss :',stopLoss,'TP1 :', takeProfit_1)
       print('Possible gain :',possible_gain,'Possible loss :',possible_loss, 'R :',R)
       print(buyOrder)
       print(sellOrder_SL)
       print(sellOrder_TP1)
-      print(sellOrder_TP2)
-      print(sellOrder_TP3)
 
   elif sellCondition(ema,rsi,stoch_rsi) == True :
     if float(cryptoAmount) > minToken and sellReady == True:
@@ -260,12 +250,12 @@ def backtest_strategy(values):
   bt_sellReady = True
 
   for bt_index, bt_row in bt_df.iterrows():
-    bt_res_ema = analyse_ema(ema1=bt_row['EMA1'],ema2=bt_row['EMA2'])
+    bt_res_ema = analyse_ema(ema1=bt_row['EMA1'],ema2=bt_row['EMA2'],ema3=bt_row['EMA3'],ema4=bt_row['EMA4'],ema5=bt_row['EMA5'],ema6=bt_row['EMA6'])
     bt_res_rsi = analyse_rsi(rsi=bt_row['RSI'])
     bt_res_stoch_rsi = analyse_stoch_rsi(blue=bt_row['STOCH_RSI_K'],orange=bt_row['STOCH_RSI_D'])
 
     #Buy market order
-    if buyCondition(bt_res_ema, bt_res_rsi, bt_res_stoch_rsi) == True and bt_usdt > 0 and bt_buyReady == True:
+    if buyCondition(bt_row,bt_previousRow) == True and bt_usdt > 0 and bt_buyReady == True:
       #You can define here at what price you buy
       bt_buyPrice = bt_row['close']
       #Define the price of you SL and TP or comment it if you don't want a SL or TP
@@ -282,7 +272,6 @@ def backtest_strategy(values):
       # print("Buy COIN at",buyPrice,'$ the', index)
       #bt_myrow = {'date': bt_index,'position': "Buy", 'reason': 'Buy Market','price': bt_buyPrice,'frais': bt_fee*bt_row['close'],'fiat': bt_usdt,'coins': bt_coin,'wallet': bt_wallet,'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
       bt_myrow = pd.DataFrame([[bt_index,"Buy",'Buy Market',bt_buyPrice,bt_fee*bt_row['close'],bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-      #bt_dt = bt_dt.append(bt_myrow,ignore_index=True)
       bt_dt = pd.concat([bt_dt,bt_myrow], ignore_index=True)
 
     #Stop Loss
@@ -299,7 +288,6 @@ def backtest_strategy(values):
       # print("Sell COIN at Stop Loss",sellPrice,'$ the', index)
       #bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Stop Loss', 'price': bt_sellPrice, 'frais': bt_fee, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
       bt_myrow = pd.DataFrame([[bt_index,"Sell",'Sell Stop Loss',bt_sellPrice,bt_fee,bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-      #bt_dt = bt_dt.append(bt_myrow,ignore_index=True)
       bt_dt = pd.concat([bt_dt,bt_myrow], ignore_index=True)
 
     #Take Profit
@@ -316,11 +304,10 @@ def backtest_strategy(values):
       # print("Sell COIN at Take Profit Loss",sellPrice,'$ the', index)
       #bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Take Profit', 'price': bt_sellPrice, 'frais': bt_fee, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
       bt_myrow = pd.DataFrame([[bt_index,"Sell",'Sell Take Profit',bt_sellPrice,bt_fee,bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-      #bt_dt = bt_dt.append(bt_myrow,ignore_index=True) 
       bt_dt = pd.concat([bt_dt,bt_myrow], ignore_index=True)
 
       # Sell Market
-    elif sellCondition(bt_res_ema, bt_res_rsi, bt_res_stoch_rsi) == True:
+    elif sellCondition(bt_row,bt_previousRow) == True:
       bt_buyReady = True
       if bt_coin > 0 and bt_sellReady == True:
         bt_sellPrice = bt_row['close']
@@ -334,7 +321,6 @@ def backtest_strategy(values):
         # print("Sell COIN at",sellPrice,'$ the', index)
         #bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Market', 'price': bt_sellPrice, 'frais': bt_frais, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
         bt_myrow = pd.DataFrame([[bt_index,"Sell",'Sell Market',bt_sellPrice,bt_frais,bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-        #bt_dt = bt_dt.append(bt_myrow,ignore_index=True)
         pd.concat([bt_dt,bt_myrow], ignore_index=True)
     
     bt_previousRow = bt_row

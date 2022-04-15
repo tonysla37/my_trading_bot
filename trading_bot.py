@@ -21,12 +21,8 @@ if __name__ == '__main__':
   protection ={}
   protection["sl_level"] = 0.02
   protection["tp1_level"] = 0.1
-  protection["tp2_level"] = 0.12
-  protection["tp3_level"] = 0.15
   protection["sl_amount"] = 1
-  protection["tp1_amount"] = 0.5
-  protection["tp2_amount"] = 0.3
-  protection["tp3_amount"] = 0.2
+  protection["tp1_amount"] = 1
 
   buyReady = True
   sellReady = True
@@ -144,7 +140,7 @@ if __name__ == '__main__':
   df['CHOP'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)
 
   # Define indicators
-  res_ema = fx.analyse_ema(ema1=df['EMA1'].iloc[-1],ema2=df['EMA2'].iloc[-1])
+  res_ema = fx.analyse_ema(ema1=df['EMA1'].iloc[-1],ema2=df['EMA2'].iloc[-1],ema3=df['EMA3'].iloc[-1],ema4=df['EMA4'].iloc[-1],ema5=df['EMA5'].iloc[-1],ema6=df['EMA6'].iloc[-1])
   res_rsi = fx.analyse_rsi(rsi=df['RSI'].iloc[-1])
   res_stoch_rsi = fx.analyse_stoch_rsi(blue=df['STOCH_RSI_K'].iloc[-1],orange=df['STOCH_RSI_D'].iloc[-1])
   res_bollinger = fx.analyse_bollinger(high=df['BOL_H_BAND'].iloc[-1],low=df['BOL_L_BAND'].iloc[-1],average=df['BOL_MAVG_BAND'].iloc[-1],close=df['close'].iloc[-1])
