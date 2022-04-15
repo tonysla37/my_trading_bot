@@ -242,7 +242,7 @@ def backtest_strategy(values):
   bt_wallet = 1000
   bt_lastAth = 0
   bt_previousRow = bt_df.iloc[0]
-  bt_makerFee = 0.0005
+  bt_makerFee = 0.0003
   bt_takerFee = 0.0007
   bt_stopLoss = 0
   bt_takeProfit = 500000
@@ -259,8 +259,8 @@ def backtest_strategy(values):
       #You can define here at what price you buy
       bt_buyPrice = bt_row['close']
       #Define the price of you SL and TP or comment it if you don't want a SL or TP
-      bt_stopLoss = bt_buyPrice - 0.02 * bt_buyPrice
-      bt_takeProfit = bt_buyPrice + 0.1 * bt_buyPrice
+      #bt_stopLoss = bt_buyPrice - 0.02 * bt_buyPrice
+      #bt_takeProfit = bt_buyPrice + 0.1 * bt_buyPrice
       bt_coin = bt_usdt / bt_buyPrice
       bt_fee = bt_takerFee * bt_coin
       bt_coin = bt_coin - bt_fee
