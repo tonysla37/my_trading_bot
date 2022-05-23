@@ -147,8 +147,8 @@ def sellCondition(row, previousRow):
     return False
 
 # Trade function
-def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,ema,rsi,stoch_rsi):
-  if buyCondition(ema,rsi,stoch_rsi) == True :
+def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection):
+  if buyCondition(values) == True :
     if float(fiatAmount) > 5 and buyReady == True :
       #You can define here at what price you buy
       buyPrice = values['close'].iloc[-1]
@@ -205,7 +205,7 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       print(sellOrder_SL)
       print(sellOrder_TP1)
 
-  elif sellCondition(ema,rsi,stoch_rsi) == True :
+  elif sellCondition(values) == True :
     if float(cryptoAmount) > minToken and sellReady == True:
       quantitySell = truncate(cryptoAmount, myTruncate)
 
@@ -259,8 +259,8 @@ def backtest_strategy(values):
       #You can define here at what price you buy
       bt_buyPrice = bt_row['close']
       #Define the price of you SL and TP or comment it if you don't want a SL or TP
-      #bt_stopLoss = bt_buyPrice - 0.02 * bt_buyPrice
-      #bt_takeProfit = bt_buyPrice + 0.1 * bt_buyPrice
+      bt_stopLoss = bt_buyPrice - 0.02 * bt_buyPrice
+      bt_takeProfit = bt_buyPrice + 0.1 * bt_buyPrice
       bt_coin = bt_usdt / bt_buyPrice
       bt_fee = bt_takerFee * bt_coin
       bt_coin = bt_coin - bt_fee
@@ -349,7 +349,7 @@ def backtest_strategy(values):
   print("Starting balance : 1000 $")
   print("Final balance :",round(bt_wallet,2),"$")
   print("Performance vs US Dollar :",round(bt_algoPorcentage,2),"%")
-  print("Buy and Hold Performence :",round(bt_holdPorcentage,2),"%")
+  print("Buy and Hold Performance :",round(bt_holdPorcentage,2),"%")
   print("Performance vs Buy and Hold :",round(bt_vsHoldPorcentage,2),"%")
   print("Number of negative trades : ",bt_dt.groupby('tradeIs')['date'].nunique()['Bad'])
   print("Number of positive trades : ",bt_dt.groupby('tradeIs')['date'].nunique()['Good'])
@@ -366,5 +366,5 @@ def backtest_strategy(values):
     print(r+" number :",bt_dt.groupby('reason')['date'].nunique()[r])
 
   bt_dt[['wallet','price']].plot(subplots=True, figsize=(20,10))
-  print('PLOT')
+  print('END')
   bt_dt
