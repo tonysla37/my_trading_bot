@@ -36,16 +36,21 @@ def truncate(n, decimals=0):
     return str(r)
 
 def get_chop(high, low, close, window):
-    tr1 = pd.DataFrame(high - low).rename(columns = {0:'tr1'})
-    tr2 = pd.DataFrame(abs(high - close.shift(1))).rename(columns = {0:'tr2'})
-    tr3 = pd.DataFrame(abs(low - close.shift(1))).rename(columns = {0:'tr3'})
+    ''' Choppiness indicator
+    '''
+    tr1 = pd.DataFrame(high - low).rename(columns={0: 'tr1'})
+    tr2 = pd.DataFrame(abs(high - close.shift(1))
+                       ).rename(columns={0: 'tr2'})
+    tr3 = pd.DataFrame(abs(low - close.shift(1))
+                       ).rename(columns={0: 'tr3'})
     frames = [tr1, tr2, tr3]
-    tr = pd.concat(frames, axis = 1, join = 'inner').dropna().max(axis = 1)
+    tr = pd.concat(frames, axis=1, join='inner').dropna().max(axis=1)
     atr = tr.rolling(1).mean()
     highh = high.rolling(window).max()
     lowl = low.rolling(window).min()
-    ci = 100 * np.log10((atr.rolling(window).sum()) / (highh - lowl)) / np.log10(window)
-    return ci
+    chop_serie = 100 * np.log10((atr.rolling(window).sum()) /
+                          (highh - lowl)) / np.log10(window)
+    return pd.Series(chop_serie, name="CHOP")
 
 def analyse_macd(macd,signal,histogram):
   #€ Stratégie 1
@@ -135,13 +140,13 @@ def analyse_bollinger(high,low,average,close):
 #     return False
 
 def buyCondition(row, previousRow):
-  if row['EMA1'] > row['EMA2'] and row['EMA2'] > row['EMA3'] and row['EMA3'] > row['EMA4'] and row['EMA4'] > row['EMA5'] and row['EMA5'] > row['EMA6'] and row['STOCH_RSI']<0.82:
+  if row['ema7'] > row['ema30'] and row['ema30'] > row['ema50'] and row['ema50'] > row['ema100'] and row['ema100'] > row['ema150'] and row['ema150'] > row['ema200'] and row['stoch_rsi']<0.82:
     return True
   else:
     return False
 
 def sellCondition(row, previousRow):
-  if row['EMA6'] > row['EMA1'] and row['STOCH_RSI']>0.2:
+  if row['ema200'] > row['ema7'] and row['stoch_rsi']>0.2:
     return True
   else:
     return False
@@ -250,9 +255,9 @@ def backtest_strategy(values):
   bt_sellReady = True
 
   for bt_index, bt_row in bt_df.iterrows():
-    bt_res_ema = analyse_ema(ema1=bt_row['EMA1'],ema2=bt_row['EMA2'],ema3=bt_row['EMA3'],ema4=bt_row['EMA4'],ema5=bt_row['EMA5'],ema6=bt_row['EMA6'])
-    bt_res_rsi = analyse_rsi(rsi=bt_row['RSI'])
-    bt_res_stoch_rsi = analyse_stoch_rsi(blue=bt_row['STOCH_RSI_K'],orange=bt_row['STOCH_RSI_D'])
+    bt_res_ema = analyse_ema(ema1=bt_row['ema7'],ema2=bt_row['ema30'],ema3=bt_row['ema50'],ema4=bt_row['ema100'],ema5=bt_row['ema150'],ema6=bt_row['ema200'])
+    bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'])
+    bt_res_stoch_rsi = analyse_stoch_rsi(blue=bt_row['stochastic'],orange=bt_row['stoch_signal'])
 
     #Buy market order
     if buyCondition(bt_row,bt_previousRow) == True and bt_usdt > 0 and bt_buyReady == True:
