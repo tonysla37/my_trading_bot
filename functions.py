@@ -1,3 +1,4 @@
+from datetime import date
 import ftx
 import pandas as pd
 import pandas_ta as pda
@@ -9,6 +10,10 @@ import json
 from math import *
 from binance.client import Client
 from termcolor import colored
+
+import requests
+import datetime
+from discord import Webhook, RequestsWebhookAdapter
 
 # /!\ Calculate PNL to manage to modify the risk_level
 def define_risk(risk_level):
@@ -65,63 +70,121 @@ def analyse_macd(macd,signal,histogram):
   # achat quand la ligne de signal est négative et quand elle sort de l'histogramme en négatif
   # vente quand la ligne de signal est positive et quand elle sort de l'histogramme en positif
   if signal < 0 and  signal < histogram :
-    trend = "buy"
+    trend = "bearish"
   elif signal > 0 and  signal > histogram :
-    trend = "sell"
+    trend = "bullish"
 
   ## Stratégie 3
   # Chercher les divergences
   return trend
 
-def analyse_stoch_rsi(blue, orange):
-  pc_blue = float(blue) * 100
-  pc_orange = float(orange) * 100
+def analyse_stoch_rsi(blue, orange,prev_blue,prev_orange):
+  result = {}
+  # pc_blue = float(blue) * 100
+  # pc_orange = float(orange) * 100
+  # pc_prev_blue = float(prev_blue) * 100
+  # pc_prev_orange = float(prev_orange) * 100
 
-  if pc_blue <= 20 and pc_orange <= 20 :
-    status = "oversell"
-  elif pc_blue >= 80 and pc_orange >= 80 :
-    status = "overbuy"
-  elif pc_blue > pc_orange :
-    status = "ok"
+  if blue <= 20 or orange <= 20 :
+    trend = "oversell"
+  elif blue >= 80 or orange >= 80 :
+    trend = "overbuy"
   else :
-      # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear
-    status = "bad"
+      # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear  
+    if blue > orange and blue > prev_blue and orange > prev_orange:
+      trend = "bullish"
+    elif blue < orange and blue < prev_blue and orange < prev_orange :
+      trend = "bearish"
   
-  return status
+  result["trend"] = trend
+  result["blue"] = blue
+  result["orange"] = orange
+  result["prev_blue"] = prev_blue
+  result["prev_orange"] = prev_orange
 
-def analyse_rsi(rsi):
+  return result
+
+def analyse_rsi(rsi,prev_rsi):
+  result = {}
   if rsi <= 30 :
-    status = "oversell"
+    trend = "oversell"
   elif rsi >= 70 :
-    status = "overbuy"
+    trend = "overbuy"
   else :
     # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear
-    status = "ok"
-  return status
+    if rsi > 50 :
+      if rsi > prev_rsi :
+        trend = "bullish"
+      elif rsi < prev_rsi :
+        trend = "bearish divergence"
+      else : 
+        trend = "neutral"
+    elif rsi < 50 : 
+      if rsi < prev_rsi :
+        trend = "bearish"
+      elif rsi > prev_rsi :
+        trend = "bullish divergence"
+      else : 
+        trend = "neutral"
+  
+  result["trend"] = trend
+  result["rsi"] = rsi
+  result["prev_rsi"] = prev_rsi
+
+  status = "Trend : "+ trend + ", RSI : " + str(rsi) + ", RSI-3 : " + str(prev_rsi)
+
+  return result
 
 def analyse_ema(ema1,ema2,ema3,ema4,ema5,ema6):
   if ema1 > ema2 and ema2 > ema3 and ema3 > ema4 and ema4 > ema5 and ema5 > ema6 :
-    status = "good"
+    trend = "bullish"
   elif ema6 > ema1 :
-    status = "bad"
+    trend = "bearish"
   else :
-    status = "neutral"
-  return status
+    trend = "neutral"
+  return trend
 
 def analyse_bollinger(high,low,average,close):
-  long = 20
-  std_dev = 2 # Ecart type
+  # long = 20
+  # std_dev = 2 # Ecart type
+
   # Quand les bornes haute et basse sont rapprochés alors risque de moment explosif
   # Attendre la confirmation du mouvement
   # 95% du temps la cloture se fait dans les bandes
   # Sinon anomalie => retour à la normale (scalping -> momentum) ou engendre une tendance
+  
+  result = {}
+
+  # volatilité
+  spread_band = high - low
+  spread_price = close - average
+
+  volatility_pc = spread_band / close * 100
+
+  if volatility_pc > 20 :
+    volatility = "high"
+  else :
+    volatility = "low"
+  
   if close > high :
-    trend = "bull"
+    trend = "overbuy"
   if close < low :
-    trend = "bear"
+    trend = "oversell"
   else:
-    status = "tbd"
-  return status
+      if close > average :
+        trend = "over_sma"
+      if close < average :
+        trend = "under_sma"
+  
+  result["trend"] = trend
+  result["spread_band"] = spread_band
+  result["spread_price"] = spread_price
+  result["volatility"] = volatility
+  result["volatility_pc"] = volatility_pc
+
+  status = "Trend : " + trend + ", Band spread : " + str(spread_band) + ", Price spread : " + str(spread_price) + ", Volatility : " + str(volatility) + ", Volatility (%) : " + str(volatility_pc)
+
+  return result
 
 # # Buy Algorithm
 # def buyCondition(ema, rsi, stoch_rsi):
@@ -140,20 +203,33 @@ def analyse_bollinger(high,low,average,close):
 #     return False
 
 def buyCondition(row, previousRow):
-  if row['ema7'] > row['ema30'] and row['ema30'] > row['ema50'] and row['ema50'] > row['ema100'] and row['ema100'] > row['ema150'] and row['ema150'] > row['ema200'] and row['stoch_rsi']<0.82:
+  if row['ema7'] > row['ema30'] and row['ema30'] > row['ema50'] and row['ema50'] > row['ema100'] and row['ema100'] > row['ema150'] and row['ema150'] > row['ema200'] and row['stoch_rsi'] < 0.82:
     return True
   else:
     return False
 
 def sellCondition(row, previousRow):
-  if row['ema200'] > row['ema7'] and row['stoch_rsi']>0.2:
+  if row['ema200'] > row['ema7'] and row['stoch_rsi'] > 0.2:
     return True
   else:
     return False
 
+def enterintrade(res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd) :
+  if res_ema == "bullish" and res_rsi["trend"] == "bullish" and res_stoch_rsi["trend"] == "bullish" :
+    trade = True
+  return trade
+
 # Trade function
-def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection):
-  if buyCondition(values) == True :
+def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd):
+  webhook = Webhook.from_url("https://discord.com/api/webhooks/984026868552433674/yw6FcEhCZYPzgFdKJG6aAo7m52xGRIHLs9g0OocEQzYSofCGqCjsagtUMcTh26ewpOJs", adapter=RequestsWebhookAdapter())
+  webhook.send('################## TRADING ADVISOR '+ str(datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')) + ' ##################')
+  webhook.send('ema => ' + res_ema)
+  webhook.send('rsi => ' + res_rsi["trend"])
+  webhook.send('stoch_rsi => ' + res_stoch_rsi["trend"])
+  webhook.send('bollinger => ' + res_bollinger["trend"])
+  webhook.send('macd => ' + res_macd)
+  
+  if buyCondition(values.iloc[-2],values.iloc[-3]) == True :
     if float(fiatAmount) > 5 and buyReady == True :
       #You can define here at what price you buy
       buyPrice = values['close'].iloc[-1]
@@ -209,8 +285,17 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       print(buyOrder)
       print(sellOrder_SL)
       print(sellOrder_TP1)
+      webhook.send('Buy price : ' + str(buyPrice))
+      webhook.send('Stop loss : ' + str(stopLoss))
+      webhook.send('TP1 : ' + str(takeProfit_1))
+      webhook.send('Possible gain : ' + str(possible_gain))
+      webhook.send('Possible loss : ' + str(possible_loss))
+      webhook.send('R : ' + str(R))
+      webhook.send(buyOrder)
+      webhook.send(sellOrder_SL)
+      webhook.send(sellOrder_TP1)
 
-  elif sellCondition(values) == True :
+  elif sellCondition(values.iloc[-2],values.iloc[-3]) == True :
     if float(cryptoAmount) > minToken and sellReady == True:
       quantitySell = truncate(cryptoAmount, myTruncate)
 
@@ -230,8 +315,13 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
       buyReady = True
       sellReady = False
       print(sellOrder)
+      webhook.send(sellOrder)
+
   else :
     print("No opportunity to take")
+    webhook.send("No opportunity to take")
+
+  webhook.send('################## TRADING ADVISOR END ##################')
 
 
 def backtest_strategy(values):

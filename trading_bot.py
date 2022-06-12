@@ -27,6 +27,8 @@ if __name__ == '__main__':
   buyReady = True
   sellReady = True
   bench_mode = True
+  #backtest = True
+  backtest = False
   risk_level = "Mid"
 
   risk= fx.define_risk(risk_level)
@@ -497,8 +499,8 @@ if __name__ == '__main__':
 
   # Define indicators
   res_ema = fx.analyse_ema(ema1=df['ema7'].iloc[-1],ema2=df['ema30'].iloc[-1],ema3=df['ema50'].iloc[-1],ema4=df['ema100'].iloc[-1],ema5=df['ema150'].iloc[-1],ema6=df['ema200'].iloc[-1])
-  res_rsi = fx.analyse_rsi(rsi=df['rsi'].iloc[-1])
-  res_stoch_rsi = fx.analyse_stoch_rsi(blue=df['stochastic'].iloc[-1],orange=df['stoch_signal'].iloc[-1])
+  res_rsi = fx.analyse_rsi(rsi=df['rsi'].iloc[-1],prev_rsi=df['rsi'].iloc[-3])
+  res_stoch_rsi = fx.analyse_stoch_rsi(blue=df['stochastic'].iloc[-1],orange=df['stoch_signal'].iloc[-1],prev_blue=df['stochastic'].iloc[-3],prev_orange=df['stoch_signal'].iloc[-3])
   res_bollinger = fx.analyse_bollinger(high=df['bol_high'].iloc[-1],low=df['bol_low'].iloc[-1],average=df['bol_medium'].iloc[-1],close=df['close'].iloc[-1])
   res_macd = fx.analyse_macd(macd=df['macd'].iloc[-1],signal=df['macd_signal'].iloc[-1],histogram=df['macd_histo'].iloc[-1])
 
@@ -518,8 +520,8 @@ if __name__ == '__main__':
   print('stoch rsi state :',res_stoch_rsi)
   print('bollinger :',res_bollinger)
 
-  # Bot actions execution
-  #fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi)
-
-  if bench_mode == True :
+  if backtest == True :
     fx.backtest_strategy(df)
+  else :
+    # Bot actions execution
+    fx.trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,df,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd)
