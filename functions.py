@@ -1,190 +1,162 @@
-from datetime import date
-import pandas as pd
-import pandas_ta as pda
-import matplotlib.pyplot as plt
-import numpy as np
-import ta
+import os
+import aiohttp
+import asyncio
+
 import time
 import json
-import krakenex
-from pykrakenapi import KrakenAPI
-from math import *
-from termcolor import colored
-
+import logging
 import requests
 import datetime
-from discord import Webhook, RequestsWebhookAdapter
+from math import floor
 
-# /!\ Calculate PNL to manage to modify the risk_level
+import pandas as pd
+import numpy as np
+import pandas_ta as pta
+import matplotlib.pyplot as plt
+import ta
+import krakenex
+from pykrakenapi import KrakenAPI
+from termcolor import colored
+# from discord import Webhook
+# from discord import RequestsWebhookAdapter
+
+# Configuration de la journalisation
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler("trading_bot.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# Configuration des clés API et des URLs (à sécuriser via des variables d'environnement)
+API_KEY = os.getenv('KRAKEN_API_KEY')
+API_SECRET = os.getenv('KRAKEN_API_SECRET')
+DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
+
+# Initialisation de l'API Kraken
+api = krakenex.API(key=API_KEY, secret=API_SECRET)
+kraken_api = KrakenAPI(api)
+
+
+async def send_webhook_message(webhook_url, content):
+    async with aiohttp.ClientSession() as session:
+        data = {
+            'content': content
+        }
+        async with session.post(webhook_url, json=data) as response:
+            if response.status == 204:
+                print("Message sent successfully!")
+            else:
+                print(f"Failed to send message: {response.status} - {await response.text()}")
+
+
+# Fonction pour définir le niveau de risque
 def define_risk(risk_level):
-    if risk_level == "Low":
-      risk = 0.01
-    elif risk_level == "Mid":
-      risk = 0.02
-    elif risk_level == "Max":
-      risk = 0.03
-    return risk
+    risques = {"Low": 0.01, "Mid": 0.02, "Max": 0.03}
+    return risques.get(risk_level, 0.01)  # Valeur par défaut : 0.01
 
-def getBalance(myclient, coin):
-    jsonBalance = myclient.get_balances()
-    if jsonBalance == []:
-        return 0
-    pandaBalance = pd.DataFrame(jsonBalance)
-    print(pandaBalance)
-    if pandaBalance.loc[pandaBalance['coin'] == coin].empty:
-        return 0
-    else:
-        return float(pandaBalance.loc[pandaBalance['coin'] == coin]['total'])
+# Fonction pour obtenir le solde d'une crypto
+def get_balance(client, coin):
+    try:
+        json_balance = client.get_balances()
+        if not json_balance:
+            return 0.0
+        df_balance = pd.DataFrame(json_balance)
+        logging.debug(f"Balance DataFrame:\n{df_balance}")
+        balance = df_balance.loc[df_balance['coin'] == coin, 'total']
+        return float(balance.values[0]) if not balance.empty else 0.0
+    except Exception as e:
+        logging.error(f"Erreur lors de la récupération du solde pour {coin}: {e}")
+        return 0.0
 
+# Fonction pour tronquer un nombre à un certain nombre de décimales
 def truncate(n, decimals=0):
-    r = floor(float(n)*10**decimals)/10**decimals
-    return str(r)
+    return floor(float(n) * 10**decimals) / 10**decimals
 
-def get_chop(high, low, close, window):
-    ''' Choppiness indicator
-    '''
-    tr1 = pd.DataFrame(high - low).rename(columns={0: 'tr1'})
-    tr2 = pd.DataFrame(abs(high - close.shift(1))
-                       ).rename(columns={0: 'tr2'})
-    tr3 = pd.DataFrame(abs(low - close.shift(1))
-                       ).rename(columns={0: 'tr3'})
-    frames = [tr1, tr2, tr3]
-    tr = pd.concat(frames, axis=1, join='inner').dropna().max(axis=1)
-    atr = tr.rolling(1).mean()
-    highh = high.rolling(window).max()
-    lowl = low.rolling(window).min()
-    chop_serie = 100 * np.log10((atr.rolling(window).sum()) /
-                          (highh - lowl)) / np.log10(window)
-    return pd.Series(chop_serie, name="CHOP")
+# Indicateur Choppiness
+def get_chop(high, low, close, window=14):
+    tr = ta.volatility.TrueRange(high, low, close)
+    atr = tr.rolling(window).mean()
+    high_high = high.rolling(window).max()
+    low_low = low.rolling(window).min()
+    chop = 100 * np.log10((atr.rolling(window).sum()) / (high_high - low_low)) / np.log10(window)
+    return chop.rename("CHOP")
 
-def analyse_macd(macd,signal,histogram):
-  #€ Stratégie 1
-  # histogram : différence entre les deux lignes MACD
-  # if histogram > 0 :
-  #   trend = "buy"
-  # elif histogram < 0 :
-  #   trend = "sell"
+# Analyse des indicateurs techniques
+def analyse_macd(macd, signal, histogram):
+    if signal < 0 and histogram < 0:
+        return "bearish"
+    elif signal > 0 and histogram > 0:
+        return "bullish"
+    else:
+        return "neutral"
 
-  ## Stratégie 2
-  # Ligne de signal
-  # achat quand la ligne de signal est négative et quand elle sort de l'histogramme en négatif
-  # vente quand la ligne de signal est positive et quand elle sort de l'histogramme en positif
-  if signal < 0 and  signal < histogram :
-    trend = "bearish"
-  elif signal > 0 and  signal > histogram :
-    trend = "bullish"
+def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
+    if blue <= 20 or orange <= 20:
+        trend = "oversell"
+    elif blue >= 80 or orange >= 80:
+        trend = "overbuy"
+    else:
+        if blue > orange and blue > prev_blue and orange > prev_orange:
+            trend = "bullish"
+        elif blue < orange and blue < prev_blue and orange < prev_orange:
+            trend = "bearish"
+        else:
+            trend = "neutral"
+    return {"trend": trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
 
-  ## Stratégie 3
-  # Chercher les divergences
-  return trend
+def analyse_rsi(rsi, prev_rsi):
+    if rsi <= 30:
+        trend = "oversell"
+    elif rsi >= 70:
+        trend = "overbuy"
+    else:
+        if rsi > 50:
+            if rsi > prev_rsi:
+                trend = "bullish"
+            elif rsi < prev_rsi:
+                trend = "bearish divergence"
+            else:
+                trend = "neutral"
+        elif rsi < 50:
+            if rsi < prev_rsi:
+                trend = "bearish"
+            elif rsi > prev_rsi:
+                trend = "bullish divergence"
+            else:
+                trend = "neutral"
+    return {"trend": trend, "rsi": rsi, "prev_rsi": prev_rsi}
 
-def analyse_stoch_rsi(blue, orange,prev_blue,prev_orange):
-  result = {}
-  # pc_blue = float(blue) * 100
-  # pc_orange = float(orange) * 100
-  # pc_prev_blue = float(prev_blue) * 100
-  # pc_prev_orange = float(prev_orange) * 100
+def analyse_ema(emas):
+    if all(emas[i] > emas[i+1] for i in range(len(emas)-1)):
+        return "bullish"
+    elif emas[-1] > emas[0]:
+        return "bearish"
+    else:
+        return "neutral"
 
-  if blue <= 20 or orange <= 20 :
-    trend = "oversell"
-  elif blue >= 80 or orange >= 80 :
-    trend = "overbuy"
-  else :
-      # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear  
-    if blue > orange and blue > prev_blue and orange > prev_orange:
-      trend = "bullish"
-    elif blue < orange and blue < prev_blue and orange < prev_orange :
-      trend = "bearish"
-  
-  result["trend"] = trend
-  result["blue"] = blue
-  result["orange"] = orange
-  result["prev_blue"] = prev_blue
-  result["prev_orange"] = prev_orange
+def analyse_bollinger(high, low, average, close):
+    spread_band = high - low
+    spread_price = close - average
+    volatility_pc = (spread_band / close) * 100
+    volatility = "high" if volatility_pc > 20 else "low"
 
-  return result
+    if close > high:
+        trend = "overbuy"
+    elif close < low:
+        trend = "oversell"
+    else:
+        trend = "over_sma" if close > average else "under_sma"
 
-def analyse_rsi(rsi,prev_rsi):
-  result = {}
-  if rsi <= 30 :
-    trend = "oversell"
-  elif rsi >= 70 :
-    trend = "overbuy"
-  else :
-    # /!\ si tendance 0,5 vers 0,8 => bull. Si tendance 0,5 vers 0,2 => bear
-    if rsi > 50 :
-      if rsi > prev_rsi :
-        trend = "bullish"
-      elif rsi < prev_rsi :
-        trend = "bearish divergence"
-      else : 
-        trend = "neutral"
-    elif rsi < 50 : 
-      if rsi < prev_rsi :
-        trend = "bearish"
-      elif rsi > prev_rsi :
-        trend = "bullish divergence"
-      else : 
-        trend = "neutral"
-  
-  result["trend"] = trend
-  result["rsi"] = rsi
-  result["prev_rsi"] = prev_rsi
-
-  status = "Trend : "+ trend + ", RSI : " + str(rsi) + ", RSI-3 : " + str(prev_rsi)
-
-  return result
-
-def analyse_ema(ema1,ema2,ema3,ema4,ema5,ema6):
-  if ema1 > ema2 and ema2 > ema3 and ema3 > ema4 and ema4 > ema5 and ema5 > ema6 :
-    trend = "bullish"
-  elif ema6 > ema1 :
-    trend = "bearish"
-  else :
-    trend = "neutral"
-  return trend
-
-def analyse_bollinger(high,low,average,close):
-  # long = 20
-  # std_dev = 2 # Ecart type
-
-  # Quand les bornes haute et basse sont rapprochés alors risque de moment explosif
-  # Attendre la confirmation du mouvement
-  # 95% du temps la cloture se fait dans les bandes
-  # Sinon anomalie => retour à la normale (scalping -> momentum) ou engendre une tendance
-  
-  result = {}
-
-  # volatilité
-  spread_band = high - low
-  spread_price = close - average
-
-  volatility_pc = spread_band / close * 100
-
-  if volatility_pc > 20 :
-    volatility = "high"
-  else :
-    volatility = "low"
-  
-  if close > high :
-    trend = "overbuy"
-  if close < low :
-    trend = "oversell"
-  else:
-      if close > average :
-        trend = "over_sma"
-      if close < average :
-        trend = "under_sma"
-  
-  result["trend"] = trend
-  result["spread_band"] = spread_band
-  result["spread_price"] = spread_price
-  result["volatility"] = volatility
-  result["volatility_pc"] = volatility_pc
-
-  status = "Trend : " + trend + ", Band spread : " + str(spread_band) + ", Price spread : " + str(spread_price) + ", Volatility : " + str(volatility) + ", Volatility (%) : " + str(volatility_pc)
-
-  return result
+    return {
+        "trend": trend,
+        "spread_band": spread_band,
+        "spread_price": spread_price,
+        "volatility": volatility,
+        "volatility_pc": volatility_pc
+    }
 
 def analyse_adi(adi, prev_adi):
     if adi > prev_adi:
@@ -194,352 +166,324 @@ def analyse_adi(adi, prev_adi):
     else:
         return "neutral"
 
-# # Buy Algorithm
-# def buyCondition(ema, rsi, stoch_rsi):
-#   #if ema == "good" and rsi == "oversell" and stoch_rsi == "oversell":
-#   if ema == "good" :
-#     return True
-#   else:
-#     return False
+# Conditions d'achat et de vente
+def buy_condition(row, previous_row):
+    return (
+        row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200'] and
+        row['stoch_rsi'] < 0.82
+    )
 
-# # Sell Algorithm
-# def sellCondition(ema, rsi, stoch_rsi):
-#   #if ema == "bad" and rsi == "overbuy" and stoch_rsi == "overbuy":
-#   if ema == "bad" :
-#     return True
-#   else:
-#     return False
+def sell_condition(row, previous_row):
+    return (
+        row['ema200'] > row['ema7'] and
+        row['stoch_rsi'] > 0.2
+    )
 
-def buyCondition(row, previousRow):
-  if row['ema7'] > row['ema30'] and row['ema30'] > row['ema50'] and row['ema50'] > row['ema100'] and row['ema100'] > row['ema150'] and row['ema150'] > row['ema200'] and row['stoch_rsi'] < 0.82:
-    return True
-  else:
-    return False
+def enter_in_trade(res_ema, res_rsi, res_stoch_rsi, res_bollinger, res_macd):
+    return (
+        res_ema == "bullish" and
+        res_rsi["trend"] == "bullish" and
+        res_stoch_rsi["trend"] == "bullish"
+    )
 
-def sellCondition(row, previousRow):
-  if row['ema200'] > row['ema7'] and row['stoch_rsi'] > 0.2:
-    return True
-  else:
-    return False
-
-def enterintrade(res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd) :
-  if res_ema == "bullish" and res_rsi["trend"] == "bullish" and res_stoch_rsi["trend"] == "bullish" :
-    trade = True
-  return trade
-
-
-# Code généré par l'IA #
-def place_buy_order(pair, volume):
+# Fonctions pour placer les ordres
+def place_order(order_type, pair, volume, price=None):
     try:
-        order = api.query_private('AddOrder', {
-            'pair': pair,
-            'type': 'buy',
-            'ordertype': 'market',
-            'volume': volume
-        })
-        print("Buy order placed:", order)
+        if order_type == 'buy':
+            order = api.query_private('AddOrder', {
+                'pair': pair,
+                'type': 'buy',
+                'ordertype': 'limit' if price else 'market',
+                'price': price if price else '',
+                'volume': volume
+            })
+        elif order_type == 'sell':
+            order = api.query_private('AddOrder', {
+                'pair': pair,
+                'type': 'sell',
+                'ordertype': 'limit' if price else 'market',
+                'price': price if price else '',
+                'volume': volume
+            })
+        logging.info(f"Ordre {order_type} placé : {order}")
+        return order
     except Exception as e:
-        print("An error occurred", e)
+        logging.error(f"Erreur lors de la placement de l'ordre {order_type} : {e}")
+        return None
 
-def place_sell_order(pair, volume):
-    try:
-        order = api.query_private('AddOrder', {
-            'pair': pair,
-            'type': 'sell',
-            'ordertype': 'market',
-            'volume': volume
-        })
-        print("Sell order placed:", order)
-    except Exception as e:
-        print("An error occurred", e)
-# Code généré par l'IA #
+# Fonction principale de trading
+def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, values, buy_ready, sell_ready, min_token, trade_amount, my_truncate, protection, res_ema, res_rsi, res_stoch_rsi, res_bollinger, res_macd):
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # webhook = Webhook.from_url(DISCORD_WEBHOOK_URL, adapter=RequestsWebhookAdapter())
+    # webhook.send(f'################## TRADING ADVISOR {now} ##################')
+    # webhook.send(f'ema => {res_ema}')
+    # webhook.send(f'rsi => {res_rsi["trend"]}')
+    # webhook.send(f'stoch_rsi => {res_stoch_rsi["trend"]}')
+    # webhook.send(f'bollinger => {res_bollinger["trend"]}')
+    # webhook.send(f'macd => {res_macd}')
 
+    # Exécuter la fonction asynchrone
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'ema => {res_ema}'))
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'rsi => {res_rsi["trend"]}'))
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'stoch_rsi => {res_stoch_rsi["trend"]}'))
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'bollinger => {res_bollinger["trend"]}'))
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'macd => {res_macd}'))
 
-# Trade function
-def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd):
-  webhook = Webhook.from_url("https://discord.com/api/webhooks/984026868552433674/yw6FcEhCZYPzgFdKJG6aAo7m52xGRIHLs9g0OocEQzYSofCGqCjsagtUMcTh26ewpOJs", adapter=RequestsWebhookAdapter())
-  webhook.send('################## TRADING ADVISOR '+ str(datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')) + ' ##################')
-  webhook.send('ema => ' + res_ema)
-  webhook.send('rsi => ' + res_rsi["trend"])
-  webhook.send('stoch_rsi => ' + res_stoch_rsi["trend"])
-  webhook.send('bollinger => ' + res_bollinger["trend"])
-  webhook.send('macd => ' + res_macd)
-  
-  if buyCondition(values.iloc[-2],values.iloc[-3]) == True :
-    if float(fiatAmount) > 5 and buyReady == True :
-      #You can define here at what price you buy
-      buyPrice = values['close'].iloc[-1]
+    # Condition d'achat
+    if buy_condition(values.iloc[-2], values.iloc[-3]):
+        if float(fiat_amount) > 5 and buy_ready:
+            buy_price = values['close'].iloc[-1]
+            quantity_buy = truncate(trade_amount, my_truncate)
+            sl_level = protection["sl_level"]
+            tp1_level = protection["tp1_level"]
+            sl_amount = protection["sl_amount"]
+            tp1_amount = protection["tp1_amount"]
 
-      # Prepare trades variables
-      quantityBuy = truncate(tradeAmount, myTruncate)
-      sl_level = protection["sl_level"]
-      tp1_level = protection["tp1_level"]
-      sl_amount = protection["sl_amount"]
-      tp1_amount = protection["tp1_amount"]
+            stop_loss = buy_price - sl_level * buy_price
+            take_profit_1 = buy_price + tp1_level * buy_price
+            sl_quantity = sl_amount * float(quantity_buy)
+            tp1_quantity = tp1_amount * float(quantity_buy)
+            possible_gain = (take_profit_1 - buy_price) * float(quantity_buy)
+            possible_loss = (buy_price - stop_loss) * float(quantity_buy)
+            R = possible_gain / possible_loss if possible_loss != 0 else 0
 
-      # Define the price of you SL and TP or comment it if you don't want a SL or TP
-      stopLoss = buyPrice - sl_level * buyPrice
-      takeProfit_1 = buyPrice + tp1_level * buyPrice
-      sl_quantity = sl_amount * float(quantityBuy)
-      tp1_quantity = tp1_amount * float(quantityBuy)
-      possible_gain = (takeProfit_1 - buyPrice) * float(quantityBuy)
-      possible_loss = (buyPrice - stopLoss) * float(quantityBuy)
-      R = possible_gain / possible_loss
+            if bench_mode:
+                buy_order = f"Buy Order placé pour la quantité : {quantity_buy}"
+                sell_order_sl = f"SL Order placé à {stop_loss} pour la quantité : {sl_quantity}"
+                sell_order_tp1 = f"TP1 Order placé à {take_profit_1} pour la quantité : {tp1_quantity}"
+            else:
+                buy_order = place_order('buy', pair_symbol, quantity_buy, buy_price)
+                sell_order_sl = place_order('sell', pair_symbol, sl_quantity, stop_loss)
+                sell_order_tp1 = place_order('sell', pair_symbol, tp1_quantity, take_profit_1)
 
-      # Request orders
-      if bench_mode == True :
-        buyOrder = "Buy Order placed for that quantity : " + quantityBuy
-        sellOrder_SL = "SL Order placed at price : " + str(stopLoss) + " And for this quantity : " + str(sl_quantity)
-        sellOrder_TP1 = "TP1 Order placed at price : " + str(takeProfit_1) + " And for this quantity : " + str(tp1_quantity)
+            buy_ready = False
+            sell_ready = True
 
-      elif bench_mode == False :
-        # # Define buy order
-        # buyOrder = client.place_order(
-        #     market=pairSymbol,
-        #     side="buy",
-        #     price=buyPrice,
-        #     size=quantityBuy,
-        #     type='limit')
-        # # Define stoploss and takeprofit order
-        # sellOrder_SL = client.place_order(
-        #     market=pairSymbol,
-        #     side="sell",
-        #     price=stopLoss,
-        #     size=quantityBuy,
-        #     type='limit')
-        # sellOrder_TP1 = client.place_order(
-        #     market=pairSymbol,
-        #     side="sell",
-        #     price=takeProfit_1,
-        #     size=tp1_quantity,
-        #     type='limit')
-
-# /!\ a finaliser
-        buyOrder = client.place_buy_order(
-            market=pairSymbol,
-            side="buy",
-            price=buyPrice,
-            size=quantityBuy,
-            type='limit')
-        # Define stoploss and takeprofit order
-        sellOrder_SL = client.place_sell_order(
-            market=pairSymbol,
-            side="sell",
-            price=stopLoss,
-            size=quantityBuy,
-            type='limit')
-        sellOrder_TP1 = client.place_sell_order(
-            market=pairSymbol,
-            side="sell",
-            price=takeProfit_1,
-            size=tp1_quantity,
-            type='limit')
-# /!\ a finaliser
-      
-      buyReady = False
-      sellReady = True
-      print('Buy price :',buyPrice, 'Stop loss :',stopLoss,'TP1 :', takeProfit_1)
-      print('Possible gain :',possible_gain,'Possible loss :',possible_loss, 'R :',R)
-      print(buyOrder)
-      print(sellOrder_SL)
-      print(sellOrder_TP1)
-      webhook.send('Buy price : ' + str(buyPrice))
-      webhook.send('Stop loss : ' + str(stopLoss))
-      webhook.send('TP1 : ' + str(takeProfit_1))
-      webhook.send('Possible gain : ' + str(possible_gain))
-      webhook.send('Possible loss : ' + str(possible_loss))
-      webhook.send('R : ' + str(R))
-      webhook.send(buyOrder)
-      webhook.send(sellOrder_SL)
-      webhook.send(sellOrder_TP1)
-
-  elif sellCondition(values.iloc[-2],values.iloc[-3]) == True :
-    if float(cryptoAmount) > minToken and sellReady == True:
-      quantitySell = truncate(cryptoAmount, myTruncate)
-
-      # Request orders
-      if bench_mode == True :
-        sellOrder = "Sell Order placed for that quantity :" + quantitySell
-
-      elif bench_mode == False :
-        # Define sell order
-        # sellOrder = client.place_order(
-        #     market=pairSymbol,
-        #     side="sell",
-        #     price=None,
-        #     size=quantitySell,
-        #     type='market')
-
-        # /!\ a finaliser
-        buyOrder = client.place_buy_order(
-            market=pairSymbol,
-            side="buy",
-            price=buyPrice,
-            size=quantityBuy,
-            type='limit')
-        # Define stoploss and takeprofit order
-        sellOrder_SL = client.place_sell_order(
-            market=pairSymbol,
-            side="sell",
-            price=stopLoss,
-            size=quantityBuy,
-            type='limit')
-        sellOrder_TP1 = client.place_sell_order(
-            market=pairSymbol,
-            side="sell",
-            price=takeProfit_1,
-            size=tp1_quantity,
-            type='limit')
-        # /!\ a finaliser
-
-      buyReady = True
-      sellReady = False
-      print(sellOrder)
-      webhook.send(sellOrder)
-
-  else :
-    print("No opportunity to take")
-    webhook.send("No opportunity to take")
-
-  webhook.send('################## TRADING ADVISOR END ##################')
+            logging.info(f"Achat à {buy_price}, Stop loss à {stop_loss}, TP1 à {take_profit_1}")
+            # webhook.send(f"Achat à {buy_price}")
+            # webhook.send(f"Stop loss à {stop_loss}")
+            # webhook.send(f"TP1 à {take_profit_1}")
+            # webhook.send(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
+            # webhook.send(buy_order)
+            # webhook.send(sell_order_sl)
+            # webhook.send(sell_order_tp1)
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Achat à {buy_price}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Stop loss à {stop_loss}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"TP1 à {take_profit_1}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, buy_order))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, sell_order_sl))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, sell_order_tp1))
 
 
+    # Condition de vente
+    elif sell_condition(values.iloc[-2], values.iloc[-3]):
+        if float(crypto_amount) > min_token and sell_ready:
+            quantity_sell = truncate(crypto_amount, my_truncate)
+
+            if bench_mode:
+                sell_order = f"Sell Order placé pour la quantité : {quantity_sell}"
+            else:
+                sell_order = place_order('sell', pair_symbol, quantity_sell)
+            
+            buy_ready = True
+            sell_ready = False
+
+            logging.info(f"Vente de {quantity_sell}")
+            # webhook.send(f"Vente de {quantity_sell}")
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity_sell}"))
+            if sell_order:
+                # webhook.send(str(sell_order))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
+    else:
+        logging.info("Aucune opportunité de trade")
+        # webhook.send("Aucune opportunité de trade")
+        asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, "Aucune opportunité de trade"))
+
+    # webhook.send('################## FIN DU TRADING ADVISOR ##################')
+    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+
+# Fonction de backtesting
 def backtest_strategy(values):
+    bt_df = values.copy()
+    bt_dt = pd.DataFrame(columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
 
-  bt_df = values.copy()
-  bt_dt = None
-  bt_dt = pd.DataFrame(columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
+    # Initialisation des variables
+    bt_usdt = 1000.0
+    bt_initial_wallet = bt_usdt
+    bt_coin = 0.0
+    bt_wallet = 1000.0
+    bt_last_ath = 0.0
+    bt_previous_row = bt_df.iloc[0]
+    bt_maker_fee = 0.0003
+    bt_taker_fee = 0.0007
+    bt_stop_loss = 0.0
+    bt_take_profit = 500000.0
+    bt_buy_ready = True
+    bt_sell_ready = True
 
-  # DATA
-  bt_usdt = 1000
-  bt_initalWallet = bt_usdt
-  bt_coin = 0
-  bt_wallet = 1000
-  bt_lastAth = 0
-  bt_previousRow = bt_df.iloc[0]
-  bt_makerFee = 0.0003
-  bt_takerFee = 0.0007
-  bt_stopLoss = 0
-  bt_takeProfit = 500000
-  bt_buyReady = True
-  bt_sellReady = True
+    for bt_index, bt_row in bt_df.iterrows():
+        bt_res_ema = analyse_ema([
+            bt_row['ema7'], bt_row['ema30'], bt_row['ema50'],
+            bt_row['ema100'], bt_row['ema150'], bt_row['ema200']
+        ])
+        bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
+        bt_res_stoch_rsi = analyse_stoch_rsi(
+            blue=bt_row['stochastic'], 
+            orange=bt_row['stoch_signal'],
+            prev_blue=bt_previous_row.get('stochastic', 0),
+            prev_orange=bt_previous_row.get('stoch_signal', 0)
+        )
 
-  for bt_index, bt_row in bt_df.iterrows():
-    bt_res_ema = analyse_ema(ema1=bt_row['ema7'],ema2=bt_row['ema30'],ema3=bt_row['ema50'],ema4=bt_row['ema100'],ema5=bt_row['ema150'],ema6=bt_row['ema200'])
-    bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'])
-    bt_res_stoch_rsi = analyse_stoch_rsi(blue=bt_row['stochastic'],orange=bt_row['stoch_signal'])
+        # Condition d'achat
+        if buy_condition(bt_row, bt_previous_row) and bt_usdt > 0 and bt_buy_ready:
+            bt_buy_price = bt_row['close']
+            bt_stop_loss = bt_buy_price - 0.02 * bt_buy_price
+            bt_take_profit = bt_buy_price + 0.1 * bt_buy_price
+            bt_coin = bt_usdt / bt_buy_price
+            bt_fee = bt_taker_fee * bt_coin
+            bt_coin -= bt_fee
+            bt_usdt = 0.0
+            bt_wallet = bt_coin * bt_row['close']
+            bt_last_ath = max(bt_wallet, bt_last_ath)
 
-    #Buy market order
-    if buyCondition(bt_row,bt_previousRow) == True and bt_usdt > 0 and bt_buyReady == True:
-      #You can define here at what price you buy
-      bt_buyPrice = bt_row['close']
-      #Define the price of you SL and TP or comment it if you don't want a SL or TP
-      bt_stopLoss = bt_buyPrice - 0.02 * bt_buyPrice
-      bt_takeProfit = bt_buyPrice + 0.1 * bt_buyPrice
-      bt_coin = bt_usdt / bt_buyPrice
-      bt_fee = bt_takerFee * bt_coin
-      bt_coin = bt_coin - bt_fee
-      bt_usdt = 0
-      bt_wallet = bt_coin * bt_row['close']
-      if bt_wallet > bt_lastAth:
-        bt_lastAth = bt_wallet
+            bt_myrow = pd.DataFrame([[
+                bt_index, "Buy", "Buy Market", bt_buy_price,
+                bt_fee * bt_row['close'], bt_usdt, bt_coin, bt_wallet,
+                (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
+            ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
+            bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
 
-      # print("Buy COIN at",buyPrice,'$ the', index)
-      #bt_myrow = {'date': bt_index,'position': "Buy", 'reason': 'Buy Market','price': bt_buyPrice,'frais': bt_fee*bt_row['close'],'fiat': bt_usdt,'coins': bt_coin,'wallet': bt_wallet,'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
-      bt_myrow = pd.DataFrame([[bt_index,"Buy",'Buy Market',bt_buyPrice,bt_fee*bt_row['close'],bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-      bt_dt = pd.concat([bt_dt,bt_myrow], ignore_index=True)
+        # Stop Loss
+        elif bt_row['low'] < bt_stop_loss and bt_coin > 0:
+            bt_sell_price = bt_stop_loss
+            bt_usdt = bt_coin * bt_sell_price
+            bt_fee = bt_maker_fee * bt_usdt
+            bt_usdt -= bt_fee
+            bt_coin = 0.0
+            bt_buy_ready = False
+            bt_wallet = bt_usdt
+            bt_last_ath = max(bt_wallet, bt_last_ath)
 
-    #Stop Loss
-    elif bt_row['low'] < bt_stopLoss and bt_coin > 0:
-      bt_sellPrice = bt_stopLoss
-      bt_usdt = bt_coin * bt_sellPrice
-      bt_fee = bt_makerFee * bt_usdt
-      bt_usdt = bt_usdt - bt_fee
-      bt_coin = 0
-      bt_buyReady = False
-      bt_wallet = bt_usdt
-      if bt_wallet > bt_lastAth:
-        bt_lastAth = bt_wallet
-      # print("Sell COIN at Stop Loss",sellPrice,'$ the', index)
-      #bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Stop Loss', 'price': bt_sellPrice, 'frais': bt_fee, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
-      bt_myrow = pd.DataFrame([[bt_index,"Sell",'Sell Stop Loss',bt_sellPrice,bt_fee,bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-      bt_dt = pd.concat([bt_dt,bt_myrow], ignore_index=True)
+            bt_myrow = pd.DataFrame([[
+                bt_index, "Sell", "Sell Stop Loss", bt_sell_price,
+                bt_fee, bt_usdt, bt_coin, bt_wallet,
+                (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
+            ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
+            bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
 
-    #Take Profit
-    elif bt_row['high'] > bt_takeProfit and bt_coin > 0:
-      bt_sellPrice = bt_takeProfit
-      bt_usdt = bt_coin * bt_sellPrice
-      bt_fee = bt_makerFee * bt_usdt
-      bt_usdt = bt_usdt - bt_fee
-      bt_coin = 0
-      bt_buyReady = False
-      bt_wallet = bt_usdt
-      if bt_wallet > bt_lastAth:
-        bt_lastAth = bt_wallet
-      # print("Sell COIN at Take Profit Loss",sellPrice,'$ the', index)
-      #bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Take Profit', 'price': bt_sellPrice, 'frais': bt_fee, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
-      bt_myrow = pd.DataFrame([[bt_index,"Sell",'Sell Take Profit',bt_sellPrice,bt_fee,bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-      bt_dt = pd.concat([bt_dt,bt_myrow], ignore_index=True)
+        # Take Profit
+        elif bt_row['high'] > bt_take_profit and bt_coin > 0:
+            bt_sell_price = bt_take_profit
+            bt_usdt = bt_coin * bt_sell_price
+            bt_fee = bt_maker_fee * bt_usdt
+            bt_usdt -= bt_fee
+            bt_coin = 0.0
+            bt_buy_ready = False
+            bt_wallet = bt_usdt
+            bt_last_ath = max(bt_wallet, bt_last_ath)
 
-      # Sell Market
-    elif sellCondition(bt_row,bt_previousRow) == True:
-      bt_buyReady = True
-      if bt_coin > 0 and bt_sellReady == True:
-        bt_sellPrice = bt_row['close']
-        bt_usdt = bt_coin * bt_sellPrice
-        bt_frais = bt_takerFee * bt_usdt
-        bt_usdt = bt_usdt - bt_frais
-        bt_coin = 0
-        bt_wallet = bt_usdt
-        if bt_wallet > bt_lastAth:
-          bt_lastAth = bt_wallet
-        # print("Sell COIN at",sellPrice,'$ the', index)
-        #bt_myrow = {'date': bt_index,'position': "Sell", 'reason': 'Sell Market', 'price': bt_sellPrice, 'frais': bt_frais, 'fiat': bt_usdt, 'coins': bt_coin, 'wallet': bt_wallet, 'drawBack':(bt_wallet-bt_lastAth)/bt_lastAth}
-        bt_myrow = pd.DataFrame([[bt_index,"Sell",'Sell Market',bt_sellPrice,bt_frais,bt_usdt,bt_coin,bt_wallet,(bt_wallet-bt_lastAth)/bt_lastAth]], columns = ['date','position', 'reason', 'price', 'frais' ,'fiat', 'coins', 'wallet', 'drawBack'])
-        pd.concat([bt_dt,bt_myrow], ignore_index=True)
+            bt_myrow = pd.DataFrame([[
+                bt_index, "Sell", "Sell Take Profit", bt_sell_price,
+                bt_fee, bt_usdt, bt_coin, bt_wallet,
+                (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
+            ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
+            bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
+
+        # Vente de marché
+        elif sell_condition(bt_row, bt_previous_row):
+            if bt_coin > 0 and bt_sell_ready:
+                bt_sell_price = bt_row['close']
+                bt_usdt = bt_coin * bt_sell_price
+                bt_fee = bt_taker_fee * bt_usdt
+                bt_usdt -= bt_fee
+                bt_coin = 0.0
+                bt_wallet = bt_usdt
+                bt_last_ath = max(bt_wallet, bt_last_ath)
+
+                bt_myrow = pd.DataFrame([[
+                    bt_index, "Sell", "Sell Market", bt_sell_price,
+                    bt_fee, bt_usdt, bt_coin, bt_wallet,
+                    (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
+                ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
+                bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
+                bt_buy_ready = True
+                bt_sell_ready = False
+
+        bt_previous_row = bt_row
+
+    # Résumé du backtest
+    logging.info(f"Période : [{bt_df.index[0]}] -> [{bt_df.index[-1]}]")
+    bt_dt.set_index('date', inplace=True)
+    bt_dt.index = pd.to_datetime(bt_dt.index)
+    bt_dt['resultat'] = bt_dt['wallet'].diff()
+    bt_dt['resultat%'] = bt_dt['wallet'].pct_change() * 100
+    bt_dt.loc[bt_dt['position'] == 'Buy', ['resultat', 'resultat%']] = None
+
+    bt_dt['tradeIs'] = bt_dt['resultat%'].apply(lambda x: 'Good' if x > 0 else ('Bad' if x <= 0 else ''))
     
-    bt_previousRow = bt_row
+    bt_initial_close = bt_df.iloc[0]['close']
+    bt_last_close = bt_df.iloc[-1]['close']
+    bt_hold_percentage = ((bt_last_close - bt_initial_close) / bt_initial_close) * 100
+    bt_algo_percentage = ((bt_wallet - bt_initial_wallet) / bt_initial_wallet) * 100
+    bt_vs_hold_percentage = ((bt_algo_percentage - bt_hold_percentage) / bt_hold_percentage) * 100 if bt_hold_percentage != 0 else 0
 
-  #///////////////////////////////////////
-  print("Period : [" + str(bt_df.index[0]) + "] -> [" +str(bt_df.index[len(bt_df)-1]) + "]")
-  bt_dt = bt_dt.set_index(bt_dt['date'])
-  bt_dt.index = pd.to_datetime(bt_dt.index)
-  bt_dt['resultat'] = bt_dt['wallet'].diff()
-  bt_dt['resultat%'] = bt_dt['wallet'].pct_change()*100
-  bt_dt.loc[bt_dt['position']=='Buy','resultat'] = None
-  bt_dt.loc[bt_dt['position']=='Buy','resultat%'] = None
+    logging.info(f"Solde initial : 1000 $")
+    logging.info(f"Solde final : {round(bt_wallet, 2)}$")
+    logging.info(f"Performance vs US Dollar : {round(bt_algo_percentage, 2)}%")
+    logging.info(f"Performance Buy and Hold : {round(bt_hold_percentage, 2)}%")
+    logging.info(f"Performance vs Buy and Hold : {round(bt_vs_hold_percentage, 2)}%")
+    logging.info(f"Nombre de trades négatifs : {bt_dt['tradeIs'].value_counts().get('Bad', 0)}")
+    logging.info(f"Nombre de trades positifs : {bt_dt['tradeIs'].value_counts().get('Good', 0)}")
+    logging.info(f"Trades positifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].mean(), 2)}%")
+    logging.info(f"Trades négatifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].mean(), 2)}%")
+    
+    if not bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].empty:
+        bt_id_best = bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].idxmax()
+        logging.info(f"Meilleur trade : +{round(bt_dt.loc[bt_id_best, 'resultat%'], 2)}% le {bt_dt.loc[bt_id_best, 'date']}")
+    
+    if not bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].empty:
+        bt_id_worst = bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].idxmin()
+        logging.info(f"Pire trade : {round(bt_dt.loc[bt_id_worst, 'resultat%'], 2)}% le {bt_dt.loc[bt_id_worst, 'date']}")
 
-  bt_dt['tradeIs'] = ''
-  bt_dt.loc[bt_dt['resultat']>0,'tradeIs'] = 'Good'
-  bt_dt.loc[bt_dt['resultat']<=0,'tradeIs'] = 'Bad'
+    logging.info(f"Pire drawBack : {round(bt_dt['drawBack'].min() * 100, 2)}%")
+    logging.info(f"Total des frais : {round(bt_dt['frais'].sum(), 2)}$")
+    
+    bt_reasons = bt_dt['reason'].unique()
+    for r in bt_reasons:
+        count = bt_dt['reason'].value_counts().get(r, 0)
+        logging.info(f"Nombre de '{r}' : {count}")
+    
+    bt_dt[['wallet', 'price']].plot(subplots=True, figsize=(20, 10))
+    plt.show()
+    logging.info('Backtest terminé')
+    return bt_dt
 
-  bt_iniClose = bt_df.iloc[0]['close']
-  bt_lastClose = bt_df.iloc[len(bt_df)-1]['close']
-  bt_holdPorcentage = ((bt_lastClose - bt_iniClose)/bt_iniClose) * 100
-  bt_algoPorcentage = ((bt_wallet - bt_initalWallet)/bt_initalWallet) * 100
-  bt_vsHoldPorcentage = ((bt_algoPorcentage - bt_holdPorcentage)/bt_holdPorcentage) * 100
+# Exemple d'utilisation (à adapter selon vos besoins)
+if __name__ == "__main__":
+    # Charger les données de trading (par exemple depuis un fichier CSV)
+    # data = pd.read_csv('path_to_your_data.csv', parse_dates=['date'], index_col='date')
 
-  print(bt_dt['tradeIs'])
+    # Exemple fictif de DataFrame
+    dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
+    data = pd.DataFrame({
+        'close': np.random.random(100) * 100,
+        'high': np.random.random(100) * 100,
+        'low': np.random.random(100) * 100,
+        'ema7': np.random.random(100) * 100,
+        'ema30': np.random.random(100) * 100,
+        'ema50': np.random.random(100) * 100,
+        'ema100': np.random.random(100) * 100,
+        'ema150': np.random.random(100) * 100,
+        'ema200': np.random.random(100) * 100,
+        'rsi': np.random.random(100) * 100,
+        'stochastic': np.random.random(100),
+        'stoch_signal': np.random.random(100)
+    }, index=dates)
 
-  print("Starting balance : 1000 $")
-  print("Final balance :",round(bt_wallet,2),"$")
-  print("Performance vs US Dollar :",round(bt_algoPorcentage,2),"%")
-  print("Buy and Hold Performance :",round(bt_holdPorcentage,2),"%")
-  print("Performance vs Buy and Hold :",round(bt_vsHoldPorcentage,2),"%")
-  print("Number of negative trades : ",bt_dt.groupby('tradeIs')['date'].nunique()['Bad'])
-  print("Number of positive trades : ",bt_dt.groupby('tradeIs')['date'].nunique()['Good'])
-  print("Average Positive Trades : ",round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].sum()/bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].count(),2),"%")
-  print("Average Negative Trades : ",round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].sum()/bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].count(),2),"%")
-  bt_idbest = bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].idxmax()
-  bt_idworst = bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].idxmin()
-  print("Best trade +"+str(round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].max(),2)),"%, the ",bt_dt['date'][bt_idbest])
-  print("Worst trade",round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].min(),2),"%, the ",bt_dt['date'][bt_idworst])
-  print("Worst drawBack", str(100*round(bt_dt['drawBack'].min(),2)),"%")
-  print("Total fee : ",round(bt_dt['frais'].sum(),2),"$")
-  bt_reasons = bt_dt['reason'].unique()
-  for r in bt_reasons:
-    print(r+" number :",bt_dt.groupby('reason')['date'].nunique()[r])
+    # Calcul des indicateurs supplémentaires si nécessaire
+    data['chop'] = get_chop(data['high'], data['low'], data['close'])
 
-  bt_dt[['wallet','price']].plot(subplots=True, figsize=(20,10))
-  print('END')
-  bt_dt
+    # Exécution du backtest
+    backtest_result = backtest_strategy(data)

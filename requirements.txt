@@ -1,3 +1,10 @@
-pandas
-pandas_ta
+pip
 python-binance
+pykrakenapi
+ta
+pandas
+matplotlib
+python-dotenv
+discord
+discord.py
+aiohttp
