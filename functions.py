@@ -10,7 +10,7 @@ import datetime
 from math import floor
 
 import pandas as pd
-import numpy as np
+import numpy
 import pandas_ta as pta
 import matplotlib.pyplot as plt
 import ta
@@ -81,7 +81,7 @@ def get_chop(high, low, close, window=14):
     atr = tr.rolling(window).mean()
     high_high = high.rolling(window).max()
     low_low = low.rolling(window).min()
-    chop = 100 * np.log10((atr.rolling(window).sum()) / (high_high - low_low)) / np.log10(window)
+    chop = 100 * numpy.log10((atr.rolling(window).sum()) / (high_high - low_low)) / numpy.log10(window)
     return chop.rename("CHOP")
 
 # Analyse des indicateurs techniques
@@ -468,18 +468,18 @@ if __name__ == "__main__":
     # Exemple fictif de DataFrame
     dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
     data = pd.DataFrame({
-        'close': np.random.random(100) * 100,
-        'high': np.random.random(100) * 100,
-        'low': np.random.random(100) * 100,
-        'ema7': np.random.random(100) * 100,
-        'ema30': np.random.random(100) * 100,
-        'ema50': np.random.random(100) * 100,
-        'ema100': np.random.random(100) * 100,
-        'ema150': np.random.random(100) * 100,
-        'ema200': np.random.random(100) * 100,
-        'rsi': np.random.random(100) * 100,
-        'stochastic': np.random.random(100),
-        'stoch_signal': np.random.random(100)
+        'close': numpy.random.random(100) * 100,
+        'high': numpy.random.random(100) * 100,
+        'low': numpy.random.random(100) * 100,
+        'ema7': numpy.random.random(100) * 100,
+        'ema30': numpy.random.random(100) * 100,
+        'ema50': numpy.random.random(100) * 100,
+        'ema100': numpy.random.random(100) * 100,
+        'ema150': numpy.random.random(100) * 100,
+        'ema200': numpy.random.random(100) * 100,
+        'rsi': numpy.random.random(100) * 100,
+        'stochastic': numpy.random.random(100),
+        'stoch_signal': numpy.random.random(100)
     }, index=dates)
 
     # Calcul des indicateurs supplémentaires si nécessaire

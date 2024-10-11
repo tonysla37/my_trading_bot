@@ -1,0 +1,20 @@
+2024-10-12 01:01:42,561 [INFO] Niveau de risque défini : Mid (0.02)
+2024-10-12 01:02:22,385 [INFO] Données Binance récupérées avec succès pour BTCUSDT
+2024-10-12 01:02:22,404 [ERROR] Erreur lors de la préparation des données : module 'ta.volatility' has no attribute 'TrueRange'
+2024-10-12 01:02:22,404 [INFO] Analyse des indicateurs terminée
+2024-10-12 01:02:22,404 [INFO] Prix actuel : 62420.0, Solde USD : 1000.0, Solde BTC : 0.5, Position de trading : 1000.0
+2024-10-12 01:02:22,405 [INFO] EMA : neutral
+2024-10-12 01:02:22,405 [INFO] État RSI : {'trend': 'bearish divergence', 'rsi': 63.101781456558314, 'prev_rsi': 74.26327974983703}
+2024-10-12 01:02:22,405 [INFO] État Stoch RSI : {'trend': 'bearish', 'blue': 58.69436496664702, 'orange': 67.7087842417029, 'prev_blue': 79.43421318916435, 'prev_orange': 84.11616184469126}
+2024-10-12 01:02:22,405 [INFO] Bollinger : {'trend': 'over_sma', 'spread_band': 3535.6578955426085, 'spread_price': 627.8419999999896, 'volatility': 'low', 'volatility_pc': 5.664302940632183}
+2024-10-12 01:02:22,405 [INFO] Début du backtest
+2024-10-12 01:02:26,250 [INFO] Niveau de risque défini : Mid (0.02)
+2024-10-12 01:03:05,180 [INFO] Données Binance récupérées avec succès pour BTCUSDT
+2024-10-12 01:03:05,197 [ERROR] Erreur lors de la préparation des données : module 'ta.volatility' has no attribute 'TrueRange'
+2024-10-12 01:03:05,198 [INFO] Analyse des indicateurs terminée
+2024-10-12 01:03:05,198 [INFO] Prix actuel : 62421.68, Solde USD : 1000.0, Solde BTC : 0.5, Position de trading : 1000.0
+2024-10-12 01:03:05,198 [INFO] EMA : neutral
+2024-10-12 01:03:05,198 [INFO] État RSI : {'trend': 'bearish divergence', 'rsi': 63.14163564224936, 'prev_rsi': 74.26327974983703}
+2024-10-12 01:03:05,198 [INFO] État Stoch RSI : {'trend': 'bearish', 'blue': 58.76392816771367, 'orange': 67.73197197539177, 'prev_blue': 79.43421318916435, 'prev_orange': 84.11616184469126}
+2024-10-12 01:03:05,198 [INFO] Bollinger : {'trend': 'over_sma', 'spread_band': 3535.8968506777455, 'spread_price': 629.4379999999946, 'volatility': 'low', 'volatility_pc': 5.66453330105461}
+2024-10-12 01:03:05,198 [INFO] Début du backtest

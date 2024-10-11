@@ -1,10 +1,18 @@
 pip
+setuptools
 python-binance
 pykrakenapi
 ta
 pandas
+# pandas_ta<=0.3.14b
+pandas_ta
 matplotlib
 python-dotenv
 discord
 discord.py
 aiohttp
+contourpy
+numpy<=1.26.4
+# distutils
+nan
+termcolor
