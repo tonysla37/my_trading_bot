@@ -186,6 +186,14 @@ def analyse_bollinger(high,low,average,close):
 
   return result
 
+def analyse_adi(adi, prev_adi):
+    if adi > prev_adi:
+        return "bullish"
+    elif adi < prev_adi:
+        return "bearish"
+    else:
+        return "neutral"
+
 # # Buy Algorithm
 # def buyCondition(ema, rsi, stoch_rsi):
 #   #if ema == "good" and rsi == "oversell" and stoch_rsi == "oversell":
@@ -218,6 +226,34 @@ def enterintrade(res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd) :
   if res_ema == "bullish" and res_rsi["trend"] == "bullish" and res_stoch_rsi["trend"] == "bullish" :
     trade = True
   return trade
+
+
+# Code généré par l'IA #
+def place_buy_order(pair, volume):
+    try:
+        order = api.query_private('AddOrder', {
+            'pair': pair,
+            'type': 'buy',
+            'ordertype': 'market',
+            'volume': volume
+        })
+        print("Buy order placed:", order)
+    except Exception as e:
+        print("An error occurred", e)
+
+def place_sell_order(pair, volume):
+    try:
+        order = api.query_private('AddOrder', {
+            'pair': pair,
+            'type': 'sell',
+            'ordertype': 'market',
+            'volume': volume
+        })
+        print("Sell order placed:", order)
+    except Exception as e:
+        print("An error occurred", e)
+# Code généré par l'IA #
+
 
 # Trade function
 def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buyReady,sellReady,minToken,tradeAmount,myTruncate,protection,res_ema,res_rsi,res_stoch_rsi,res_bollinger,res_macd):

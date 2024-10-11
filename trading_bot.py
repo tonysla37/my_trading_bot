@@ -6,6 +6,8 @@ import numpy as np
 import ta
 import time
 import json
+import krakenex
+from pykrakenapi import KrakenAPI
 from math import *
 from binance.client import Client
 from termcolor import colored
@@ -42,15 +44,21 @@ if __name__ == '__main__':
     cryptoAmount = 0.5
 
   elif bench_mode == False :
-    client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
-    data = client.get_historical_data(
-      market_name=pairSymbol,
-      resolution=3600,
-      limit=1000,
-      start_time=float(
-      round(time.time()))-100*3600,
-      end_time=float(round(time.time())))
-    df = pd.DataFrame(data)
+
+    api = krakenex.API()
+    # Assurez-vous d'avoir vos clés d'API configurées auparavant
+    k = KrakenAPI(api)
+
+    # client = ftx.FtxClient(api_key='', api_secret='', subaccount_name=accountName)
+    # data = client.get_historical_data(
+    #   market_name=pairSymbol,
+    #   resolution=3600,
+    #   limit=1000,
+    #   start_time=float(
+    #   round(time.time()))-100*3600,
+    #   end_time=float(round(time.time())))
+    # df = pd.DataFrame(data)
+    df = k.get_ohlc_data(pair="XXBTZUSD", interval=60, since=int(time.time())-(86400*30))[0]
     fiatAmount = fx.getBalance(client, fiatSymbol)
     cryptoAmount = fx.getBalance(client, cryptoSymbol)
 
@@ -475,8 +483,8 @@ if __name__ == '__main__':
   # Choppiness index
   df['chop'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)
 
-  # # ADI Indicator
-  # df["adi"] = ta.volume.acc_dist_index(high=df['high'], low=df['low'], close=df['close'], volume = df['volume'])
+  # ADI Indicator
+  df['adi'] = ta.volume.acc_dist_index(high=df['high'], low=df['low'], close=df['close'], volume=df['volume'])
 
   # # FI
   # df["fi"] = ta.volume.force_index(close=df['close'] ,volume=df['volume'], window=13)
