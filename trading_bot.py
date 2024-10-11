@@ -5,10 +5,14 @@ import numpy as np
 import ta
 import time
 import json
-import krakenex
-from pykrakenapi import KrakenAPI
 from math import *
 from termcolor import colored
+
+import os
+from binance.client import Client
+from binance.enums import *
+import krakenex
+from pykrakenapi import KrakenAPI
 
 import functions as fx
 
@@ -27,27 +31,41 @@ if __name__ == '__main__':
   buyReady = True
   sellReady = True
   bench_mode = True
-  #backtest = True
-  backtest = False
+  backtest = True
+  # backtest = False
   risk_level = "Mid"
 
   risk= fx.define_risk(risk_level)
 
   if bench_mode == True :
     client = Client()
-    #klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2017")
-    klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2022")
+    klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2017")
+    # klinesT = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 january 2022")
     df = pd.DataFrame(klinesT, columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore' ])
     fiatAmount = 1000
     cryptoAmount = 0.5
 
   elif bench_mode == False :
 
-    api = krakenex.API()
-    # Assurez-vous d'avoir vos clés d'API configurées auparavant
-    k = KrakenAPI(api)
+    # api = krakenex.API()
+    # # Assurez-vous d'avoir vos clés d'API configurées auparavant
+    # k = KrakenAPI(api)
 
-    df = k.get_ohlc_data(pair="XXBTZUSD", interval=60, since=int(time.time())-(86400*30))[0]
+    # df = k.get_ohlc_data(pair="XXBTZUSD", interval=60, since=int(time.time())-(86400*30))[0]
+
+    API_KEY = os.getenv('BINANCE_API_KEY')
+    API_SECRET = os.getenv('BINANCE_API_SECRET')
+
+    client = Client(API_KEY, API_SECRET)
+
+    data = client.get_historical_data(
+      market_name=pairSymbol,
+      resolution=3600,
+      limit=1000,
+      start_time=float(
+      round(time.time()))-100*3600,
+      end_time=float(round(time.time())))
+    df = pd.DataFrame(data)
     fiatAmount = fx.getBalance(client, fiatSymbol)
     cryptoAmount = fx.getBalance(client, cryptoSymbol)
 
