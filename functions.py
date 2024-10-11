@@ -1,5 +1,4 @@
 from datetime import date
-import ftx
 import pandas as pd
 import pandas_ta as pda
 import matplotlib.pyplot as plt
@@ -7,8 +6,9 @@ import numpy as np
 import ta
 import time
 import json
+import krakenex
+from pykrakenapi import KrakenAPI
 from math import *
-from binance.client import Client
 from termcolor import colored
 
 import requests
@@ -293,26 +293,48 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
         sellOrder_TP1 = "TP1 Order placed at price : " + str(takeProfit_1) + " And for this quantity : " + str(tp1_quantity)
 
       elif bench_mode == False :
-        # Define buy order
-        buyOrder = client.place_order(
+        # # Define buy order
+        # buyOrder = client.place_order(
+        #     market=pairSymbol,
+        #     side="buy",
+        #     price=buyPrice,
+        #     size=quantityBuy,
+        #     type='limit')
+        # # Define stoploss and takeprofit order
+        # sellOrder_SL = client.place_order(
+        #     market=pairSymbol,
+        #     side="sell",
+        #     price=stopLoss,
+        #     size=quantityBuy,
+        #     type='limit')
+        # sellOrder_TP1 = client.place_order(
+        #     market=pairSymbol,
+        #     side="sell",
+        #     price=takeProfit_1,
+        #     size=tp1_quantity,
+        #     type='limit')
+
+# /!\ a finaliser
+        buyOrder = client.place_buy_order(
             market=pairSymbol,
             side="buy",
             price=buyPrice,
             size=quantityBuy,
             type='limit')
         # Define stoploss and takeprofit order
-        sellOrder_SL = client.place_order(
+        sellOrder_SL = client.place_sell_order(
             market=pairSymbol,
             side="sell",
             price=stopLoss,
             size=quantityBuy,
             type='limit')
-        sellOrder_TP1 = client.place_order(
+        sellOrder_TP1 = client.place_sell_order(
             market=pairSymbol,
             side="sell",
             price=takeProfit_1,
             size=tp1_quantity,
             type='limit')
+# /!\ a finaliser
       
       buyReady = False
       sellReady = True
@@ -341,12 +363,34 @@ def trade_action(client,bench_mode,pairSymbol,fiatAmount,cryptoAmount,values,buy
 
       elif bench_mode == False :
         # Define sell order
-        sellOrder = client.place_order(
+        # sellOrder = client.place_order(
+        #     market=pairSymbol,
+        #     side="sell",
+        #     price=None,
+        #     size=quantitySell,
+        #     type='market')
+
+        # /!\ a finaliser
+        buyOrder = client.place_buy_order(
+            market=pairSymbol,
+            side="buy",
+            price=buyPrice,
+            size=quantityBuy,
+            type='limit')
+        # Define stoploss and takeprofit order
+        sellOrder_SL = client.place_sell_order(
             market=pairSymbol,
             side="sell",
-            price=None,
-            size=quantitySell,
-            type='market')
+            price=stopLoss,
+            size=quantityBuy,
+            type='limit')
+        sellOrder_TP1 = client.place_sell_order(
+            market=pairSymbol,
+            side="sell",
+            price=takeProfit_1,
+            size=tp1_quantity,
+            type='limit')
+        # /!\ a finaliser
 
       buyReady = True
       sellReady = False
