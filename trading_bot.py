@@ -128,7 +128,7 @@ def prepare_data(df):
         df['chop'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)
 
         # Indicateur ADI
-        df['adi'] = ta.volume.AccDistIndex(high=df['high'], low=df['low'], close=df['close'], volume=df['volume']).acc_dist_index()
+        df['adi'] = ta.volume.acc_dist_index(high=df['high'], low=df['low'], close=df['close'], volume=df['volume'])
 
         logging.info("Indicateurs techniques calculés avec succès")
         return df

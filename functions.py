@@ -76,13 +76,30 @@ def truncate(n, decimals=0):
     return floor(float(n) * 10**decimals) / 10**decimals
 
 # Indicateur Choppiness
-def get_chop(high, low, close, window=14):
-    tr = ta.volatility.TrueRange(high, low, close)
-    atr = tr.rolling(window).mean()
-    high_high = high.rolling(window).max()
-    low_low = low.rolling(window).min()
-    chop = 100 * numpy.log10((atr.rolling(window).sum()) / (high_high - low_low)) / numpy.log10(window)
-    return chop.rename("CHOP")
+# def get_chop(high, low, close, window=14):
+#     tr = ta.volatility.TrueRange(high, low, close)
+#     atr = tr.rolling(window).mean()
+#     high_high = high.rolling(window).max()
+#     low_low = low.rolling(window).min()
+#     chop = 100 * numpy.log10((atr.rolling(window).sum()) / (high_high - low_low)) / numpy.log10(window)
+#     return chop.rename("CHOP")
+
+def get_chop(high, low, close, window):
+    ''' Choppiness indicator
+    '''
+    tr1 = pd.DataFrame(high - low).rename(columns={0: 'tr1'})
+    tr2 = pd.DataFrame(abs(high - close.shift(1))
+                       ).rename(columns={0: 'tr2'})
+    tr3 = pd.DataFrame(abs(low - close.shift(1))
+                       ).rename(columns={0: 'tr3'})
+    frames = [tr1, tr2, tr3]
+    tr = pd.concat(frames, axis=1, join='inner').dropna().max(axis=1)
+    atr = tr.rolling(1).mean()
+    highh = high.rolling(window).max()
+    lowl = low.rolling(window).min()
+    chop_serie = 100 * numpy.log10((atr.rolling(window).sum()) /
+                          (highh - lowl)) / numpy.log10(window)
+    return pd.Series(chop_serie, name="CHOP")
 
 # Analyse des indicateurs techniques
 def analyse_macd(macd, signal, histogram):
@@ -94,40 +111,42 @@ def analyse_macd(macd, signal, histogram):
         return "neutral"
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
+    srsi_trend - "undefined"
     if blue <= 20 or orange <= 20:
-        trend = "oversell"
+        srsi_trend = "oversell"
     elif blue >= 80 or orange >= 80:
-        trend = "overbuy"
+        srsi_trend = "overbuy"
     else:
         if blue > orange and blue > prev_blue and orange > prev_orange:
-            trend = "bullish"
+            srsi_trend = "bullish"
         elif blue < orange and blue < prev_blue and orange < prev_orange:
-            trend = "bearish"
+            srsi_trend = "bearish"
         else:
-            trend = "neutral"
-    return {"trend": trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
+            srsi_trend = "neutral"
+    return {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
 
 def analyse_rsi(rsi, prev_rsi):
+    rsi_trend - "undefined"
     if rsi <= 30:
-        trend = "oversell"
+        rsi_trend = "oversell"
     elif rsi >= 70:
-        trend = "overbuy"
+        rsi_trend = "overbuy"
     else:
         if rsi > 50:
             if rsi > prev_rsi:
-                trend = "bullish"
+                rsi_trend = "bullish"
             elif rsi < prev_rsi:
-                trend = "bearish divergence"
+                rsi_trend = "bearish divergence"
             else:
-                trend = "neutral"
+                rsi_trend = "neutral"
         elif rsi < 50:
             if rsi < prev_rsi:
-                trend = "bearish"
+                rsi_trend = "bearish"
             elif rsi > prev_rsi:
-                trend = "bullish divergence"
+                rsi_trend = "bullish divergence"
             else:
-                trend = "neutral"
-    return {"trend": trend, "rsi": rsi, "prev_rsi": prev_rsi}
+                rsi_trend = "neutral"
+    return {"trend": rsi_trend, "rsi": rsi, "prev_rsi": prev_rsi}
 
 def analyse_ema(emas):
     if all(emas[i] > emas[i+1] for i in range(len(emas)-1)):
@@ -144,14 +163,14 @@ def analyse_bollinger(high, low, average, close):
     volatility = "high" if volatility_pc > 20 else "low"
 
     if close > high:
-        trend = "overbuy"
+        bol_trend = "overbuy"
     elif close < low:
-        trend = "oversell"
+        bol_trend = "oversell"
     else:
-        trend = "over_sma" if close > average else "under_sma"
+        bol_trend = "over_sma" if close > average else "under_sma"
 
     return {
-        "trend": trend,
+        "trend": bol_trend,
         "spread_band": spread_band,
         "spread_price": spread_price,
         "volatility": volatility,
@@ -328,7 +347,7 @@ def backtest_strategy(values):
             bt_row['ema7'], bt_row['ema30'], bt_row['ema50'],
             bt_row['ema100'], bt_row['ema150'], bt_row['ema200']
         ])
-        bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
+        # bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
         bt_res_stoch_rsi = analyse_stoch_rsi(
             blue=bt_row['stochastic'], 
             orange=bt_row['stoch_signal'],
