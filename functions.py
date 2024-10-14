@@ -323,15 +323,15 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
     asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
 
 # Fonction de backtesting
-def backtest_strategy(values):
+def backtest_strategy(fiatAmount, cryptoAmount, values):
     bt_df = values.copy()
     bt_dt = pd.DataFrame(columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
 
     # Initialisation des variables
-    bt_usdt = 1000.0
+    bt_usdt = fiatAmount
     bt_initial_wallet = bt_usdt
-    bt_coin = 0.0
-    bt_wallet = 1000.0
+    bt_coin = cryptoAmount
+    bt_wallet = fiatAmount
     bt_last_ath = 0.0
     bt_previous_row = bt_df.iloc[0]
     bt_maker_fee = 0.0003
@@ -453,7 +453,7 @@ def backtest_strategy(values):
     bt_algo_percentage = ((bt_wallet - bt_initial_wallet) / bt_initial_wallet) * 100
     bt_vs_hold_percentage = ((bt_algo_percentage - bt_hold_percentage) / bt_hold_percentage) * 100 if bt_hold_percentage != 0 else 0
 
-    logging.info(f"Solde initial : 1000 $")
+    logging.info(f"Solde initial : " + str(fiatAmount) + "$")
     logging.info(f"Solde final : {round(bt_wallet, 2)}$")
     logging.info(f"Performance vs US Dollar : {round(bt_algo_percentage, 2)}%")
     logging.info(f"Performance Buy and Hold : {round(bt_hold_percentage, 2)}%")

@@ -205,8 +205,8 @@ def main():
     if bench_mode:
         client = Client()  # Client sans clés API pour le backtest
         df = get_binance_data(client, "BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 January 2017")
-        fiat_amount = 1000.0
-        crypto_amount = 0.5
+        fiat_amount = 10000.0
+        crypto_amount = 1
     else:
         # Client Binance avec clés API
         API_KEY = os.getenv('BINANCE_API_KEY')
@@ -293,7 +293,7 @@ def main():
     if backtest:
         # Exécuter le backtest
         logging.info("Début du backtest")
-        fx.backtest_strategy(df)
+        fx.backtest_strategy(fiat_amount, crypto_amount, df)
     else:
         # Exécuter les actions de trading
         logging.info("Exécution des actions de trading en live")
