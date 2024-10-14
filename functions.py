@@ -111,7 +111,7 @@ def analyse_macd(macd, signal, histogram):
         return "neutral"
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
-    srsi_trend - "undefined"
+    srsi_trend = "undefined"
     if blue <= 20 or orange <= 20:
         srsi_trend = "oversell"
     elif blue >= 80 or orange >= 80:
@@ -126,7 +126,7 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     return {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
 
 def analyse_rsi(rsi, prev_rsi):
-    rsi_trend - "undefined"
+    rsi_trend = "undefined"
     if rsi <= 30:
         rsi_trend = "oversell"
     elif rsi >= 70:

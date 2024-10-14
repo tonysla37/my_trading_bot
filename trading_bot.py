@@ -136,6 +136,44 @@ def prepare_data(df):
         logging.error(f"Erreur lors de la préparation des données : {e}")
         return df
 
+def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
+    srsi_trend - "undefined"
+    if blue <= 20 or orange <= 20:
+        srsi_trend = "oversell"
+    elif blue >= 80 or orange >= 80:
+        srsi_trend = "overbuy"
+    else:
+        if blue > orange and blue > prev_blue and orange > prev_orange:
+            srsi_trend = "bullish"
+        elif blue < orange and blue < prev_blue and orange < prev_orange:
+            srsi_trend = "bearish"
+        else:
+            srsi_trend = "neutral"
+    return {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
+
+def analyse_rsi(rsi, prev_rsi):
+    rsi_trend - "undefined"
+    if rsi <= 30:
+        rsi_trend = "oversell"
+    elif rsi >= 70:
+        rsi_trend = "overbuy"
+    else:
+        if rsi > 50:
+            if rsi > prev_rsi:
+                rsi_trend = "bullish"
+            elif rsi < prev_rsi:
+                rsi_trend = "bearish divergence"
+            else:
+                rsi_trend = "neutral"
+        elif rsi < 50:
+            if rsi < prev_rsi:
+                rsi_trend = "bearish"
+            elif rsi > prev_rsi:
+                rsi_trend = "bullish divergence"
+            else:
+                rsi_trend = "neutral"
+    return {"trend": rsi_trend, "rsi": rsi, "prev_rsi": prev_rsi}
+
 def main():
     # Configuration des paramètres
     pair_symbol = 'BTCUSDT'  # Symbole Binance
