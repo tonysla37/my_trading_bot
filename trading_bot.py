@@ -15,6 +15,11 @@ from dotenv import load_dotenv
 
 import functions as fx  # Votre module optimisé
 
+import warnings
+
+# Ignorer tous les FutureWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 # Charger les variables d'environnement depuis le fichier .env
 load_dotenv()
 
@@ -190,7 +195,7 @@ def main():
     sell_ready = True
     bench_mode = True  # Mode backtest
     backtest = True
-    risk_level = "Mid"
+    risk_level = "Max"
 
     # Définir le niveau de risque
     risk = fx.define_risk(risk_level)

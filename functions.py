@@ -188,21 +188,20 @@ def analyse_adi(adi, prev_adi):
 # Conditions d'achat et de vente
 def buy_condition(row, previous_row):
     return (
-        row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200'] and
-        row['stoch_rsi'] < 0.82
+        # row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200'] and row['stoch_rsi'] < 0.82
+        row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200']
     )
 
 def sell_condition(row, previous_row):
     return (
-        row['ema200'] > row['ema7'] and
-        row['stoch_rsi'] > 0.2
+        # row['ema200'] > row['ema7'] and row['stoch_rsi'] > 0.2
+        row['ema200'] > row['ema7']
     )
 
 def enter_in_trade(res_ema, res_rsi, res_stoch_rsi, res_bollinger, res_macd):
     return (
-        res_ema == "bullish" and
-        res_rsi["trend"] == "bullish" and
-        res_stoch_rsi["trend"] == "bullish"
+        # res_ema == "bullish" and res_rsi["trend"] == "bullish" and res_stoch_rsi["trend"] == "bullish"
+        res_ema == "bullish"
     )
 
 # Fonctions pour placer les ordres
@@ -348,12 +347,12 @@ def backtest_strategy(values):
             bt_row['ema100'], bt_row['ema150'], bt_row['ema200']
         ])
         # bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
-        bt_res_stoch_rsi = analyse_stoch_rsi(
-            blue=bt_row['stochastic'], 
-            orange=bt_row['stoch_signal'],
-            prev_blue=bt_previous_row.get('stochastic', 0),
-            prev_orange=bt_previous_row.get('stoch_signal', 0)
-        )
+        # bt_res_stoch_rsi = analyse_stoch_rsi(
+        #     blue=bt_row['stochastic'], 
+        #     orange=bt_row['stoch_signal'],
+        #     prev_blue=bt_previous_row.get('stochastic', 0),
+        #     prev_orange=bt_previous_row.get('stoch_signal', 0)
+        # )
 
         # Condition d'achat
         if buy_condition(bt_row, bt_previous_row) and bt_usdt > 0 and bt_buy_ready:
@@ -372,7 +371,13 @@ def backtest_strategy(values):
                 bt_fee * bt_row['close'], bt_usdt, bt_coin, bt_wallet,
                 (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
             ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
-            bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
+            # bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
+
+            # Si bt_myrow n'est pas vide ou totalement rempli de NA, concaténez-le
+            if not bt_myrow.isna().all(axis=None):
+                bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
+            else:
+                logging.warning("bt_myrow est vide ou totalement rempli de NA, non concaténé.")
 
         # Stop Loss
         elif bt_row['low'] < bt_stop_loss and bt_coin > 0:
@@ -457,14 +462,16 @@ def backtest_strategy(values):
     logging.info(f"Nombre de trades positifs : {bt_dt['tradeIs'].value_counts().get('Good', 0)}")
     logging.info(f"Trades positifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].mean(), 2)}%")
     logging.info(f"Trades négatifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].mean(), 2)}%")
-    
+
+    # Modifiez ces lignes dans votre fonction de backtesting
+    # Vérifiez que la date est récupérée depuis l'index
     if not bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].empty:
         bt_id_best = bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].idxmax()
-        logging.info(f"Meilleur trade : +{round(bt_dt.loc[bt_id_best, 'resultat%'], 2)}% le {bt_dt.loc[bt_id_best, 'date']}")
-    
+        logging.info(f"Meilleur trade : +{round(bt_dt.loc[bt_id_best, 'resultat%'], 2)}% le {bt_id_best}")
+
     if not bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].empty:
         bt_id_worst = bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].idxmin()
-        logging.info(f"Pire trade : {round(bt_dt.loc[bt_id_worst, 'resultat%'], 2)}% le {bt_dt.loc[bt_id_worst, 'date']}")
+        logging.info(f"Pire trade : {round(bt_dt.loc[bt_id_worst, 'resultat%'], 2)}% le {bt_id_worst}")
 
     logging.info(f"Pire drawBack : {round(bt_dt['drawBack'].min() * 100, 2)}%")
     logging.info(f"Total des frais : {round(bt_dt['frais'].sum(), 2)}$")
