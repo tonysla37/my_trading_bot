@@ -453,7 +453,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
     bt_algo_percentage = ((bt_wallet - bt_initial_wallet) / bt_initial_wallet) * 100
     bt_vs_hold_percentage = ((bt_algo_percentage - bt_hold_percentage) / bt_hold_percentage) * 100 if bt_hold_percentage != 0 else 0
 
-    logging.info(f"Solde initial : " + str(fiatAmount) + "$")
+    logging.info(f"Solde initial : {str(fiatAmount)}$")
     logging.info(f"Solde final : {round(bt_wallet, 2)}$")
     logging.info(f"Performance vs US Dollar : {round(bt_algo_percentage, 2)}%")
     logging.info(f"Performance Buy and Hold : {round(bt_hold_percentage, 2)}%")
