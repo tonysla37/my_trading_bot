@@ -105,6 +105,14 @@ def prepare_data(df):
     try:
         # Calcul des indicateurs techniques
         df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
+
+        # Assurez-vous que les colonnes nécessaires existent ('low', 'high', 'close')
+        df['stoch_rsi'] = ta.momentum.stochrsi(close=df['close'], window=14, smooth1=3, smooth2=3)
+
+        # Optionnellement, calculez les lignes de signal pour une meilleure interprétation
+        df['stoch_rsi_k'] = ta.momentum.stochrsi_k(close=df['close'], window=14, smooth1=3, smooth2=3)
+        df['stoch_rsi_d'] = ta.momentum.stochrsi_d(close=df['close'], window=14, smooth1=3, smooth2=3)
+        
         stoch = ta.momentum.StochasticOscillator(high=df['high'], low=df['low'], close=df['close'], window=14, smooth_window=3)
         df['stochastic'] = stoch.stoch()
         df['stoch_signal'] = stoch.stoch_signal()
@@ -261,6 +269,12 @@ def main():
             prev_blue=df['stochastic'].iloc[-3],
             prev_orange=df['stoch_signal'].iloc[-3]
         )
+        # res_stoch_rsi = fx.analyse_stoch_rsi(
+        #     blue=df['stochastic'].iloc[-1],
+        #     orange=df['stoch_signal'].iloc[-1],
+        #     prev_blue=df['stochastic'].iloc[-3],
+        #     prev_orange=df['stoch_signal'].iloc[-3]
+        # )
         res_bollinger = fx.analyse_bollinger(
             high=df['bol_high'].iloc[-1],
             low=df['bol_low'].iloc[-1],

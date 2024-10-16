@@ -187,21 +187,25 @@ def analyse_adi(adi, prev_adi):
 
 # Conditions d'achat et de vente
 def buy_condition(row, previous_row):
+    # print("Clés disponibles : ", list(row.index))
+    # print("stoch_rsi : ", row.stoch_rsi)
+
     return (
-        # row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200'] and row['stoch_rsi'] < 0.82
         row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200']
+        and row['stoch_rsi'] < 0.82
     )
 
 def sell_condition(row, previous_row):
     return (
-        # row['ema200'] > row['ema7'] and row['stoch_rsi'] > 0.2
         row['ema200'] > row['ema7']
+        and row['stoch_rsi'] > 0.2
     )
 
 def enter_in_trade(res_ema, res_rsi, res_stoch_rsi, res_bollinger, res_macd):
     return (
-        # res_ema == "bullish" and res_rsi["trend"] == "bullish" and res_stoch_rsi["trend"] == "bullish"
         res_ema == "bullish"
+        and res_rsi["trend"] == "bullish"
+        and res_stoch_rsi["trend"] == "bullish"
     )
 
 # Fonctions pour placer les ordres
@@ -346,13 +350,13 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
             bt_row['ema7'], bt_row['ema30'], bt_row['ema50'],
             bt_row['ema100'], bt_row['ema150'], bt_row['ema200']
         ])
-        # bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
-        # bt_res_stoch_rsi = analyse_stoch_rsi(
-        #     blue=bt_row['stochastic'], 
-        #     orange=bt_row['stoch_signal'],
-        #     prev_blue=bt_previous_row.get('stochastic', 0),
-        #     prev_orange=bt_previous_row.get('stoch_signal', 0)
-        # )
+        bt_res_rsi = analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
+        bt_res_stoch_rsi = analyse_stoch_rsi(
+            blue=bt_row['stochastic'], 
+            orange=bt_row['stoch_signal'],
+            prev_blue=bt_previous_row.get('stochastic', 0),
+            prev_orange=bt_previous_row.get('stoch_signal', 0)
+        )
 
         # Condition d'achat
         if buy_condition(bt_row, bt_previous_row) and bt_usdt > 0 and bt_buy_ready:
@@ -371,7 +375,6 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 bt_fee * bt_row['close'], bt_usdt, bt_coin, bt_wallet,
                 (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
             ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
-            # bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
 
             # Si bt_myrow n'est pas vide ou totalement rempli de NA, concaténez-le
             if not bt_myrow.isna().all(axis=None):
