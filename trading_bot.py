@@ -220,7 +220,7 @@ def main():
     dca_value = perf_percentage['dca_value']
     logging.info(f"Le capital de départ {capital:.2f}€")
     logging.info(f"Le capital cible {cible:.2f}%")
-    logging.info(f"L'horizon de placement {temps:.2f}%")
+    logging.info(f"L'horizon de placement {temps:.2f} an(s)")
     logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
     logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {year_percentage:.2f}%")
     logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {monthly_percentage:.2f}%")

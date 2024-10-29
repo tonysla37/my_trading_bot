@@ -536,8 +536,11 @@ def calculate_rendement(capital, cible, temps, dca):
     # Calcul de la valeur future
     n_months = n * 12
     dca_value = PV * (1 + r_monthly)**n_months + C * (((1 + r_monthly)**n_months - 1) / r_monthly)
+    dca_year = dca * 12
+    dca_total = dca_year * n
+    capital_total = PV + dca_total
 
-    r_yearly_dca = (FV / dca_value)**(1 / n) - 1
+    r_yearly_dca = (capital_total / PV)**(1 / n) - 1
     r_monthly_dca = (1 + r_yearly_dca)**(1 / 12) - 1
     r_daily_dca = (1 + r_yearly_dca)**(1 / 365) - 1
     
