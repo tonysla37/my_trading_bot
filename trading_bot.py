@@ -205,11 +205,30 @@ def main():
     backtest = True
     risk_level = "Max"
 
-    perf_percentage = fx.calculate_rendement(500, 200000, 10)
+    capital = 500
+    cible = 200000
+    temps = 1
+    dca = 150
+
+    perf_percentage = fx.calculate_rendement(capital, cible, temps, dca)
     year_percentage = perf_percentage['year_percentage']
+    monthly_percentage = perf_percentage['monthly_percentage']
     daily_percentage = perf_percentage['daily_percentage']
-    logging.info(f"Le taux de croissance annuel composé nécessaire est d'environ {year_percentage:.2f}%")
-    logging.info(f"Le taux de croissance journalier nécessaire pour le trading de cryptomonnaies est d'environ {daily_percentage:.6f}%")
+    year_percentage_dca = perf_percentage['year_percentage_dca']
+    monthly_percentage_dca = perf_percentage['monthly_percentage_dca']
+    daily_percentage_dca = perf_percentage['daily_percentage_dca']
+    dca_value = perf_percentage['dca_value']
+    logging.info(f"Le capital de départ {capital:.2f}€")
+    logging.info(f"Le capital cible {cible:.2f}%")
+    logging.info(f"L'horizon de placement {temps:.2f}%")
+    logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
+    logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {year_percentage:.2f}%")
+    logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {monthly_percentage:.2f}%")
+    logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {daily_percentage:.6f}%")
+    logging.info(f"La valeur future de l'investissement avec des contributions mensuelles est d'environ {dca_value:.2f}€")
+    logging.info(f"Le taux de croissance annuel composé nécessaire avec dca est d'environ {year_percentage_dca:.2f}%")
+    logging.info(f"Le taux de croissance mensuelle composé nécessaire avec dca est d'environ {monthly_percentage_dca:.2f}%")
+    logging.info(f"Le taux de croissance journalier nécessaire avec dca est d'environ {daily_percentage_dca:.6f}%")
 
     # Définir le niveau de risque
     risk = fx.define_risk(risk_level)

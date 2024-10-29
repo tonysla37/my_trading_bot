@@ -517,19 +517,41 @@ if __name__ == "__main__":
     # Exécution du backtest
     backtest_result = backtest_strategy(data)
 
-def calculate_rendement(capital, cible, temps):
+def calculate_rendement(capital, cible, temps, dca):
     PV = capital
     FV = cible
     n = temps
+    C = dca
 
-    r = (FV / PV)**(1 / n) - 1
-    year_percentage = r * 100
-
-    r_daily = (FV / PV)**(1 / (n * 365)) - 1
+    r_yearly = (FV / PV)**(1 / n) - 1
+    r_monthly = (1 + r_yearly)**(1 / 12) - 1
+    # r_daily = (FV / PV)**(1 / (n * 365)) - 1
+    r_daily = (1 + r_yearly)**(1 / 365) - 1
+    
+    year_percentage = r_yearly * 100
+    monthly_percentage = r_monthly * 100
     daily_percentage = r_daily * 100
+
+
+    # Calcul de la valeur future
+    n_months = n * 12
+    dca_value = PV * (1 + r_monthly)**n_months + C * (((1 + r_monthly)**n_months - 1) / r_monthly)
+
+    r_yearly_dca = (FV / dca_value)**(1 / n) - 1
+    r_monthly_dca = (1 + r_yearly_dca)**(1 / 12) - 1
+    r_daily_dca = (1 + r_yearly_dca)**(1 / 365) - 1
+    
+    year_percentage_dca = r_yearly_dca * 100
+    monthly_percentage_dca = r_monthly_dca * 100
+    daily_percentage_dca = r_daily_dca * 100
 
     result = {}
     result['year_percentage'] = year_percentage
+    result['monthly_percentage'] = monthly_percentage
     result['daily_percentage'] = daily_percentage
+    result['dca_value'] = dca_value
+    result['year_percentage_dca'] = year_percentage_dca
+    result['monthly_percentage_dca'] = monthly_percentage_dca
+    result['daily_percentage_dca'] = daily_percentage_dca
 
     return result
