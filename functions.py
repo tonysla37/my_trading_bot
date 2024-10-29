@@ -516,3 +516,20 @@ if __name__ == "__main__":
 
     # Exécution du backtest
     backtest_result = backtest_strategy(data)
+
+def calculate_rendement(capital, cible, temps):
+    PV = capital
+    FV = cible
+    n = temps
+
+    r = (FV / PV)**(1 / n) - 1
+    year_percentage = r * 100
+
+    r_daily = (FV / PV)**(1 / (n * 365)) - 1
+    daily_percentage = r_daily * 100
+
+    result = {}
+    result['year_percentage'] = year_percentage
+    result['daily_percentage'] = daily_percentage
+
+    return result

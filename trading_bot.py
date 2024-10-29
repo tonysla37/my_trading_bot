@@ -205,6 +205,12 @@ def main():
     backtest = True
     risk_level = "Max"
 
+    perf_percentage = fx.calculate_rendement(500, 200000, 10)
+    year_percentage = perf_percentage['year_percentage']
+    daily_percentage = perf_percentage['daily_percentage']
+    logging.info(f"Le taux de croissance annuel composé nécessaire est d'environ {year_percentage:.2f}%")
+    logging.info(f"Le taux de croissance journalier nécessaire pour le trading de cryptomonnaies est d'environ {daily_percentage:.6f}%")
+
     # Définir le niveau de risque
     risk = fx.define_risk(risk_level)
     logging.info(f"Niveau de risque défini : {risk_level} ({risk})")
