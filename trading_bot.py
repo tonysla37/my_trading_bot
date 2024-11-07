@@ -1,19 +1,17 @@
 import os
 import time
 import logging
-import datetime
-from math import floor
 
 import pandas as pd
-import numpy as np
-import ta
+
 from binance.client import Client
-from pykrakenapi import KrakenAPI
-# from discord import Webhook
-# from discord import RequestsWebhookAdapter
 from dotenv import load_dotenv
 
-import functions as fx  # Votre module optimisé
+import backtest as bt
+import indicators as indic  # Votre module optimisé
+import informations as info  # Votre module optimisé
+import trade as trade  # Votre module optimisé
+
 
 import warnings
 
@@ -33,160 +31,6 @@ logging.basicConfig(
     ]
 )
 
-def get_binance_data(client, symbol, interval, start_str):
-    """
-    Récupère les données historiques de Binance.
-
-    Args:
-        client (Client): Instance du client Binance.
-        symbol (str): Symbole de trading (e.g., 'BTCUSDT').
-        interval (str): Intervalle de temps (e.g., Client.KLINE_INTERVAL_1HOUR).
-        start_str (str): Date de début (e.g., '01 january 2017').
-
-    Returns:
-        pd.DataFrame: DataFrame contenant les données de trading.
-    """
-    try:
-        klines = client.get_historical_klines(symbol, interval, start_str)
-        df = pd.DataFrame(klines, columns=[
-            'timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time',
-            'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'
-        ])
-        # Convertir les colonnes en types numériques
-        for col in ['open', 'high', 'low', 'close', 'volume']:
-            df[col] = pd.to_numeric(df[col])
-        # Convertir le timestamp en datetime
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        df.set_index('timestamp', inplace=True)
-        logging.info(f"Données Binance récupérées avec succès pour {symbol}")
-        return df
-    except Exception as e:
-        logging.error(f"Erreur lors de la récupération des données Binance : {e}")
-        return pd.DataFrame()
-
-def get_kraken_data(api, symbol, interval, since):
-    """
-    Récupère les données historiques de Kraken.
-
-    Args:
-        api (KrakenAPI): Instance de l'API Kraken.
-        symbol (str): Symbole de trading (e.g., 'XXBTZUSD').
-        interval (int): Intervalle de temps en minutes (e.g., 60).
-        since (int): Timestamp Unix de début.
-
-    Returns:
-        pd.DataFrame: DataFrame contenant les données de trading.
-    """
-    try:
-        df = api.get_ohlc_data(pair=symbol, interval=interval, since=since)[0]
-        # Convertir les colonnes en types numériques
-        for col in ['open', 'high', 'low', 'close', 'vwap', 'volume', 'count']:
-            df[col] = pd.to_numeric(df[col])
-        df.reset_index(inplace=True)
-        df['timestamp'] = pd.to_datetime(df['time'], unit='s')
-        df.set_index('timestamp', inplace=True)
-        df.drop(columns=['time'], inplace=True)
-        logging.info(f"Données Kraken récupérées avec succès pour {symbol}")
-        return df
-    except Exception as e:
-        logging.error(f"Erreur lors de la récupération des données Kraken : {e}")
-        return pd.DataFrame()
-
-def prepare_data(df):
-    """
-    Prépare les données en calculant les indicateurs techniques.
-
-    Args:
-        df (pd.DataFrame): DataFrame contenant les données de trading.
-
-    Returns:
-        pd.DataFrame: DataFrame enrichi avec les indicateurs techniques.
-    """
-    try:
-        # Calcul des indicateurs techniques
-        df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
-
-        # Assurez-vous que les colonnes nécessaires existent ('low', 'high', 'close')
-        df['stoch_rsi'] = ta.momentum.stochrsi(close=df['close'], window=14, smooth1=3, smooth2=3)
-
-        # Optionnellement, calculez les lignes de signal pour une meilleure interprétation
-        df['stoch_rsi_k'] = ta.momentum.stochrsi_k(close=df['close'], window=14, smooth1=3, smooth2=3)
-        df['stoch_rsi_d'] = ta.momentum.stochrsi_d(close=df['close'], window=14, smooth1=3, smooth2=3)
-        
-        stoch = ta.momentum.StochasticOscillator(high=df['high'], low=df['low'], close=df['close'], window=14, smooth_window=3)
-        df['stochastic'] = stoch.stoch()
-        df['stoch_signal'] = stoch.stoch_signal()
-
-        macd = ta.trend.MACD(close=df['close'], window_fast=12, window_slow=26, window_sign=9)
-        df['macd'] = macd.macd()
-        df['macd_signal'] = macd.macd_signal()
-        df['macd_histo'] = macd.macd_diff()
-
-        df['awesome_oscillador'] = ta.momentum.AwesomeOscillatorIndicator(high=df['high'], low=df['low'], window1=5, window2=34).awesome_oscillator()
-
-        # Moyennes mobiles exponentielles
-        for window in [7, 30, 50, 100, 150, 200]:
-            df[f'ema{window}'] = ta.trend.EMAIndicator(close=df['close'], window=window).ema_indicator()
-
-        # Bandes de Bollinger
-        bollinger = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
-        df['bol_high'] = bollinger.bollinger_hband()
-        df['bol_low'] = bollinger.bollinger_lband()
-        df['bol_medium'] = bollinger.bollinger_mavg()
-        df['bol_gap'] = bollinger.bollinger_wband()
-        df['bol_higher'] = bollinger.bollinger_hband_indicator()
-        df['bol_lower'] = bollinger.bollinger_lband_indicator()
-
-        # Indicateur Choppiness
-        df['chop'] = fx.get_chop(high=df['high'], low=df['low'], close=df['close'], window=14)
-
-        # Indicateur ADI
-        df['adi'] = ta.volume.acc_dist_index(high=df['high'], low=df['low'], close=df['close'], volume=df['volume'])
-
-        logging.info("Indicateurs techniques calculés avec succès")
-        return df
-    except Exception as e:
-        logging.error(f"Erreur lors de la préparation des données : {e}")
-        return df
-
-def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
-    srsi_trend - "undefined"
-    if blue <= 20 or orange <= 20:
-        srsi_trend = "oversell"
-    elif blue >= 80 or orange >= 80:
-        srsi_trend = "overbuy"
-    else:
-        if blue > orange and blue > prev_blue and orange > prev_orange:
-            srsi_trend = "bullish"
-        elif blue < orange and blue < prev_blue and orange < prev_orange:
-            srsi_trend = "bearish"
-        else:
-            srsi_trend = "neutral"
-    return {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
-
-def analyse_rsi(rsi, prev_rsi):
-    rsi_trend - "undefined"
-    if rsi <= 30:
-        rsi_trend = "oversell"
-    elif rsi >= 70:
-        rsi_trend = "overbuy"
-    else:
-        if rsi > 50:
-            if rsi > prev_rsi:
-                rsi_trend = "bullish"
-            elif rsi < prev_rsi:
-                rsi_trend = "bearish divergence"
-            else:
-                rsi_trend = "neutral"
-        elif rsi < 50:
-            if rsi < prev_rsi:
-                rsi_trend = "bearish"
-            elif rsi > prev_rsi:
-                rsi_trend = "bullish divergence"
-            else:
-                rsi_trend = "neutral"
-    return {"trend": rsi_trend, "rsi": rsi, "prev_rsi": prev_rsi}
-
 def main():
     # Configuration des paramètres
     pair_symbol = 'BTCUSDT'  # Symbole Binance
@@ -203,41 +47,37 @@ def main():
     sell_ready = True
     bench_mode = True  # Mode backtest
     backtest = True
-    risk_level = "Max"
+    risk_level = "Max"  # Low, Mid, Max
 
-    capital = 500
+    capital = 100
     cible = 200000
-    temps = 1
-    dca = 150
+    temps = 5
+    dca = 100
 
-    perf_percentage = fx.calculate_rendement(capital, cible, temps, dca)
-    year_percentage = perf_percentage['year_percentage']
-    monthly_percentage = perf_percentage['monthly_percentage']
-    daily_percentage = perf_percentage['daily_percentage']
-    year_percentage_dca = perf_percentage['year_percentage_dca']
-    monthly_percentage_dca = perf_percentage['monthly_percentage_dca']
-    daily_percentage_dca = perf_percentage['daily_percentage_dca']
-    dca_value = perf_percentage['dca_value']
+    perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
+    risk = info.define_risk(risk_level)
+
+    logging.info(f"#############################################################")
     logging.info(f"Le capital de départ {capital:.2f}€")
     logging.info(f"Le capital cible {cible:.2f}%")
     logging.info(f"L'horizon de placement {temps:.2f} an(s)")
     logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
-    logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {year_percentage:.2f}%")
-    logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {monthly_percentage:.2f}%")
-    logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {daily_percentage:.6f}%")
-    logging.info(f"La valeur future de l'investissement avec des contributions mensuelles est d'environ {dca_value:.2f}€")
-    logging.info(f"Le taux de croissance annuel composé nécessaire avec dca est d'environ {year_percentage_dca:.2f}%")
-    logging.info(f"Le taux de croissance mensuelle composé nécessaire avec dca est d'environ {monthly_percentage_dca:.2f}%")
-    logging.info(f"Le taux de croissance journalier nécessaire avec dca est d'environ {daily_percentage_dca:.6f}%")
-
-    # Définir le niveau de risque
-    risk = fx.define_risk(risk_level)
     logging.info(f"Niveau de risque défini : {risk_level} ({risk})")
+    logging.info(f"#############################################################")
+    logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {perf_percentage['year_percentage']:.2f}%")
+    logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {perf_percentage['monthly_percentage']:.2f}%")
+    logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {perf_percentage['daily_percentage']:.6f}%")
+    logging.info(f"La valeur future de l'investissement avec des contributions mensuelles est d'environ {perf_percentage['dca_value']:.2f}€")
+    logging.info(f"Le taux de croissance annuel composé nécessaire avec dca est d'environ {perf_percentage['year_percentage_dca']:.2f}%")
+    logging.info(f"Le taux de croissance mensuelle composé nécessaire avec dca est d'environ {perf_percentage['monthly_percentage_dca']:.2f}%")
+    logging.info(f"Le taux de croissance journalier nécessaire avec dca est d'environ {perf_percentage['daily_percentage_dca']:.6f}%")
+    logging.info(f"Le taux de croissance mensuel nécessaire pour atteindre {cible} € est d'environ {perf_percentage['ca_percentage']:.6f} % par mois.")
+    logging.info(f"#############################################################")
 
     # Initialisation des clients API
     if bench_mode:
         client = Client()  # Client sans clés API pour le backtest
-        df = get_binance_data(client, "BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 January 2017")
+        df = trade.get_binance_data(client, "BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 January 2017")
         fiat_amount = 10000.0
         crypto_amount = 1
     else:
@@ -245,6 +85,7 @@ def main():
         API_KEY = os.getenv('BINANCE_API_KEY')
         API_SECRET = os.getenv('BINANCE_API_SECRET')
         client = Client(API_KEY, API_SECRET)
+
         # Récupérer les données de Binance
         try:
             data = client.get_historical_klines(
@@ -267,19 +108,19 @@ def main():
             return
 
         # Obtenir les soldes
-        fiat_amount = fx.get_balance(client, fiat_symbol)
-        crypto_amount = fx.get_balance(client, crypto_symbol)
+        fiat_amount = trade.get_balance(client, fiat_symbol)
+        crypto_amount = trade.get_balance(client, crypto_symbol)
 
     if df.empty:
         logging.error("Le DataFrame est vide. Arrêt du script.")
         return
 
     # Préparer les données avec les indicateurs techniques
-    df = prepare_data(df)
+    df = info.prepare_data(df)
 
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
-        res_ema = fx.analyse_ema([
+        res_ema = indic.analyse_ema([
             df['ema7'].iloc[-1],
             df['ema30'].iloc[-1],
             df['ema50'].iloc[-1],
@@ -287,26 +128,26 @@ def main():
             df['ema150'].iloc[-1],
             df['ema200'].iloc[-1]
         ])
-        res_rsi = fx.analyse_rsi(rsi=df['rsi'].iloc[-1], prev_rsi=df['rsi'].iloc[-3])
-        res_stoch_rsi = fx.analyse_stoch_rsi(
+        res_rsi = indic.analyse_rsi(rsi=df['rsi'].iloc[-1], prev_rsi=df['rsi'].iloc[-3])
+        res_stoch_rsi = indic.analyse_stoch_rsi(
             blue=df['stochastic'].iloc[-1],
             orange=df['stoch_signal'].iloc[-1],
             prev_blue=df['stochastic'].iloc[-3],
             prev_orange=df['stoch_signal'].iloc[-3]
         )
-        # res_stoch_rsi = fx.analyse_stoch_rsi(
+        # res_stoch_rsi = indic.analyse_stoch_rsi(
         #     blue=df['stochastic'].iloc[-1],
         #     orange=df['stoch_signal'].iloc[-1],
         #     prev_blue=df['stochastic'].iloc[-3],
         #     prev_orange=df['stoch_signal'].iloc[-3]
         # )
-        res_bollinger = fx.analyse_bollinger(
+        res_bollinger = indic.analyse_bollinger(
             high=df['bol_high'].iloc[-1],
             low=df['bol_low'].iloc[-1],
             average=df['bol_medium'].iloc[-1],
             close=df['close'].iloc[-1]
         )
-        res_macd = fx.analyse_macd(
+        res_macd = indic.analyse_macd(
             macd=df['macd'].iloc[-1],
             signal=df['macd_signal'].iloc[-1],
             histogram=df['macd_histo'].iloc[-1]
@@ -323,6 +164,7 @@ def main():
     position = (float(fiat_amount) * risk) / protection["sl_level"]
 
     # Afficher les informations pertinentes
+    logging.info(f"#############################################################")
     logging.info(f"Prix actuel : {actual_price}, Solde USD : {fiat_amount}, Solde BTC : {crypto_amount}, Position de trading : {position}")
     logging.info(f"EMA : {res_ema}")
     logging.info(f"État RSI : {res_rsi}")
@@ -331,12 +173,14 @@ def main():
 
     if backtest:
         # Exécuter le backtest
+        logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        fx.backtest_strategy(fiat_amount, crypto_amount, df)
+        bt.backtest_strategy(fiat_amount, crypto_amount, df)
     else:
         # Exécuter les actions de trading
+        logging.info(f"#############################################################")
         logging.info("Exécution des actions de trading en live")
-        fx.trade_action(
+        trade.trade_action(
             client=client,
             bench_mode=bench_mode,
             pairSymbol=pair_symbol,

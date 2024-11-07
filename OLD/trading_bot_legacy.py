@@ -12,7 +12,7 @@ from math import *
 from binance.client import Client
 from termcolor import colored
 
-import functions as fx
+import trade as fx
 
 if __name__ == '__main__':
   accountName = ''
