@@ -1,5 +1,6 @@
 .env
-*.log
+backtest.log
+trading_bot.log
 OLD
 bot
 __pycache__
