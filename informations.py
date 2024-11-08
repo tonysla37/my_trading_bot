@@ -2,10 +2,8 @@ import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import ta
-
 from binance.client import Client
 from math import floor
-
 import indicators as indic
 
 def prepare_data(df):
@@ -59,46 +57,48 @@ def prepare_data(df):
         # Indicateur ADI
         df['adi'] = ta.volume.acc_dist_index(high=df['high'], low=df['low'], close=df['close'], volume=df['volume'])
 
-        logging.info("Indicateurs techniques calculés avec succès")
+        logging.info("Indicateurs techniques calculés avec succès.")
         return df
     except Exception as e:
         logging.error(f"Erreur lors de la préparation des données : {e}")
         return df
 
-# Fonction pour définir le niveau de risque
 def define_risk(risk_level):
     risques = {"Low": 0.01, "Mid": 0.02, "Max": 0.03}
-    return risques.get(risk_level, 0.01)  # Valeur par défaut : 0.01
+    risk_value = risques.get(risk_level, 0.01)
+    logging.info(f"Niveau de risque défini pour {risk_level}: {risk_value}")
+    return risk_value
 
-# Fonction pour obtenir le solde d'une crypto
 def get_balance(client, coin):
     try:
         json_balance = client.get_balances()
         if not json_balance:
+            logging.warning(f"Aucune donnée de solde disponible pour {coin}.")
             return 0.0
         df_balance = pd.DataFrame(json_balance)
         logging.debug(f"Balance DataFrame:\n{df_balance}")
         balance = df_balance.loc[df_balance['coin'] == coin, 'total']
-        return float(balance.values[0]) if not balance.empty else 0.0
+        balance_value = float(balance.values[0]) if not balance.empty else 0.0
+        logging.info(f"Solde pour {coin}: {balance_value}")
+        return balance_value
     except Exception as e:
         logging.error(f"Erreur lors de la récupération du solde pour {coin}: {e}")
         return 0.0
 
-# Fonction pour tronquer un nombre à un certain nombre de décimales
 def truncate(n, decimals=0):
-    return floor(float(n) * 10**decimals) / 10**decimals
+    truncated_value = floor(float(n) * 10**decimals) / 10**decimals
+    logging.debug(f"Valeur tronquée: {truncated_value}")
+    return truncated_value
 
-# Fonction pour calculer la différence entre la valeur future attendue et la valeur calculée
 def func_diff(r, PV, C, FV, n_months):
     if r <= 0:
-        return float('inf')  # Renvoie l'infini pour éviter des calculs avec r <= 0
+        return float('inf')
     try:
         future_value = PV * (1 + r)**n_months + C * (((1 + r)**n_months - 1) / r)
         return future_value - FV
     except OverflowError:
-        return float('inf')  # En cas de débordement, renvoyer l'infini
+        return float('inf')
 
-# Recherche binaire pour trouver le r
 def find_rate(PV, C, FV, n_months, low, high, tolerance=1e-6):
     while (high - low) > tolerance:
         mid = (low + high) / 2
@@ -106,6 +106,7 @@ def find_rate(PV, C, FV, n_months, low, high, tolerance=1e-6):
             low = mid
         else:
             high = mid
+    logging.debug(f"Taux trouvé : {(low + high) / 2}")
     return (low + high) / 2
 
 def calculate_rendement(capital, cible, temps, dca):
@@ -116,15 +117,12 @@ def calculate_rendement(capital, cible, temps, dca):
 
     r_yearly = (FV / PV)**(1 / n) - 1
     r_monthly = (1 + r_yearly)**(1 / 12) - 1
-    # r_daily = (FV / PV)**(1 / (n * 365)) - 1
     r_daily = (1 + r_yearly)**(1 / 365) - 1
     
     year_percentage = r_yearly * 100
     monthly_percentage = r_monthly * 100
     daily_percentage = r_daily * 100
 
-
-    # Calcul de la valeur future
     n_months = n * 12
     dca_value = PV * (1 + r_monthly)**n_months + C * (((1 + r_monthly)**n_months - 1) / r_monthly)
     dca_year = dca * 12
@@ -139,18 +137,19 @@ def calculate_rendement(capital, cible, temps, dca):
     monthly_percentage_dca = r_monthly_dca * 100
     daily_percentage_dca = r_daily_dca * 100
 
-    # Initial bounds for r
-    initial_low = 0.0001  # 0.01% par mois
-    initial_high = 0.10    # 10% par mois
+    initial_low = 0.0001
+    initial_high = 0.10
 
-    # Trouver r qui satisfait la condition
     r_needed = find_rate(PV, C, FV, n_months, initial_low, initial_high)
 
-    # Affichage du taux de croissance nécessaire
     if r_needed > 0:
         ca_percentage = r_needed * 100
     else:
         ca_percentage = "negatif"
+
+    logging.info(f"Rendement calculé : Annuel {year_percentage}%, Mensuel {monthly_percentage}%, Journalier {daily_percentage}%")
+    logging.info(f"Rendement avec DCA : Annuel {year_percentage_dca}%, Mensuel {monthly_percentage_dca}%, Journalier {daily_percentage_dca}%")
+    logging.info(f"Croissance annuelle nécessaire pour atteindre {FV}: {ca_percentage}%")
 
     result = {}
     result['year_percentage'] = year_percentage

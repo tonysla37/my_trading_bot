@@ -1,8 +1,8 @@
 import os
 import time
 import logging
-
 import pandas as pd
+import yaml
 
 from binance.client import Client
 from dotenv import load_dotenv
@@ -31,28 +31,31 @@ logging.basicConfig(
     ]
 )
 
-def main():
-    # Configuration des paramètres
-    pair_symbol = 'BTCUSDT'  # Symbole Binance
-    fiat_symbol = 'USD'
-    crypto_symbol = 'BTC'
-    my_truncate = 5
-    protection = {
-        "sl_level": 0.02,
-        "tp1_level": 0.1,
-        "sl_amount": 1,
-        "tp1_amount": 1
-    }
-    buy_ready = True
-    sell_ready = True
-    bench_mode = True  # Mode backtest
-    backtest = True
-    risk_level = "Max"  # Low, Mid, Max
+# Charger le fichier de configuration YAML
+def load_config(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
 
-    capital = 100
-    cible = 200000
-    temps = 5
-    dca = 100
+def main():
+    # Charger la configuration
+    config = load_config('config.yaml')
+    
+    # Extraire les paramètres de configuration
+    trading_config = config['trading']
+    pair_symbol = trading_config['pair_symbol']
+    fiat_symbol = trading_config['fiat_symbol']
+    crypto_symbol = trading_config['crypto_symbol']
+    my_truncate = trading_config['my_truncate']
+    protection = trading_config['protection']
+    buy_ready = trading_config['buy_ready']
+    sell_ready = trading_config['sell_ready']
+    bench_mode = trading_config['bench_mode']
+    backtest = trading_config['backtest']
+    risk_level = trading_config['risk_level']
+    capital = trading_config['capital']
+    cible = trading_config['cible']
+    temps = trading_config['temps']
+    dca = trading_config['dca']
 
     perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
     risk = info.define_risk(risk_level)
@@ -64,14 +67,14 @@ def main():
     logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
     logging.info(f"Niveau de risque défini : {risk_level} ({risk})")
     logging.info(f"#############################################################")
-    logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {perf_percentage['year_percentage']:.2f}%")
-    logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {perf_percentage['monthly_percentage']:.2f}%")
-    logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {perf_percentage['daily_percentage']:.6f}%")
+    # logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {perf_percentage['year_percentage']:.2f}%")
+    # logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {perf_percentage['monthly_percentage']:.2f}%")
+    # logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {perf_percentage['daily_percentage']:.6f}%")
     logging.info(f"La valeur future de l'investissement avec des contributions mensuelles est d'environ {perf_percentage['dca_value']:.2f}€")
-    logging.info(f"Le taux de croissance annuel composé nécessaire avec dca est d'environ {perf_percentage['year_percentage_dca']:.2f}%")
-    logging.info(f"Le taux de croissance mensuelle composé nécessaire avec dca est d'environ {perf_percentage['monthly_percentage_dca']:.2f}%")
-    logging.info(f"Le taux de croissance journalier nécessaire avec dca est d'environ {perf_percentage['daily_percentage_dca']:.6f}%")
-    logging.info(f"Le taux de croissance mensuel nécessaire pour atteindre {cible} € est d'environ {perf_percentage['ca_percentage']:.6f} % par mois.")
+    # logging.info(f"Le taux de croissance annuel composé nécessaire avec dca est d'environ {perf_percentage['year_percentage_dca']:.2f}%")
+    # logging.info(f"Le taux de croissance mensuelle composé nécessaire avec dca est d'environ {perf_percentage['monthly_percentage_dca']:.2f}%")
+    # logging.info(f"Le taux de croissance journalier nécessaire avec dca est d'environ {perf_percentage['daily_percentage_dca']:.6f}%")
+    # logging.info(f"Le taux de croissance mensuel nécessaire pour atteindre {cible} € est d'environ {perf_percentage['ca_percentage']:.6f} % par mois.")
     logging.info(f"#############################################################")
 
     # Initialisation des clients API

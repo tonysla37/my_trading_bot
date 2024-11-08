@@ -17,3 +17,5 @@ numpy<=1.26.4
 nan
 termcolor
 scipy
+pyyaml
+influxdb-client

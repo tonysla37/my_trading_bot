@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 
-import indicators as indic  # Votre module optimisé
-import trade as trade  # Votre module optimisé
+import indicators as indic
+import trade as trade
+import influx_utils
 
 # Configuration de la journalisation
 logging.basicConfig(
@@ -16,8 +17,8 @@ logging.basicConfig(
     ]
 )
 
-# Fonction de backtesting
 def backtest_strategy(fiatAmount, cryptoAmount, values):
+    logging.info("Début du backtest.")
     bt_df = values.copy()
     bt_dt = pd.DataFrame(columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
 
@@ -32,6 +33,8 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
     bt_taker_fee = 0.0007
     bt_buy_ready = True
     bt_sell_ready = True
+
+    logging.info(f"Solde initial : {bt_usdt} USD, Cryptomonnaie initiale : {bt_coin} coins")
 
     for bt_index, bt_row in bt_df.iterrows():
         bt_res_ema = indic.analyse_ema([
@@ -58,53 +61,28 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
             bt_wallet = bt_coin * bt_row['close']
             bt_last_ath = max(bt_wallet, bt_last_ath)
 
+            logging.info(f"Achat exécuté le {bt_index} à {bt_buy_price} USD, Solde après frais : {bt_wallet} USD")
+
             bt_myrow = pd.DataFrame([[
                 bt_index, "Buy", "Buy Market", bt_buy_price,
                 bt_fee * bt_row['close'], bt_usdt, bt_coin, bt_wallet,
                 (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
             ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
 
-            # Si bt_myrow n'est pas vide ou totalement rempli de NA, concaténez-le
-            if not bt_myrow.isna().all(axis=None):
-                bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
-            else:
-                logging.warning("bt_myrow est vide ou totalement rempli de NA, non concaténé.")
+            bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
 
-        # # Stop Loss
-        # elif bt_row['low'] < bt_stop_loss and bt_coin > 0:
-        #     bt_sell_price = bt_stop_loss
-        #     bt_usdt = bt_coin * bt_sell_price
-        #     bt_fee = bt_maker_fee * bt_usdt
-        #     bt_usdt -= bt_fee
-        #     bt_coin = 0.0
-        #     bt_buy_ready = False
-        #     bt_wallet = bt_usdt
-        #     bt_last_ath = max(bt_wallet, bt_last_ath)
-
-        #     bt_myrow = pd.DataFrame([[
-        #         bt_index, "Sell", "Sell Stop Loss", bt_sell_price,
-        #         bt_fee, bt_usdt, bt_coin, bt_wallet,
-        #         (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
-        #     ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
-        #     bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
-
-        # # Take Profit
-        # elif bt_row['high'] > bt_take_profit and bt_coin > 0:
-        #     bt_sell_price = bt_take_profit
-        #     bt_usdt = bt_coin * bt_sell_price
-        #     bt_fee = bt_maker_fee * bt_usdt
-        #     bt_usdt -= bt_fee
-        #     bt_coin = 0.0
-        #     bt_buy_ready = False
-        #     bt_wallet = bt_usdt
-        #     bt_last_ath = max(bt_wallet, bt_last_ath)
-
-        #     bt_myrow = pd.DataFrame([[
-        #         bt_index, "Sell", "Sell Take Profit", bt_sell_price,
-        #         bt_fee, bt_usdt, bt_coin, bt_wallet,
-        #         (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
-        #     ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
-        #     bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
+            # Écrire dans InfluxDB après l'achat
+            influx_utils.write_to_influx(
+                measurement="trades",
+                tags={"type": "buy"},
+                fields={
+                    "price": bt_buy_price,
+                    "wallet": bt_wallet,
+                    "fiat_amount": bt_usdt,
+                    "crypto_amount": bt_coin
+                },
+                timestamp=bt_index
+            )
 
         # Vente de marché
         elif trade.sell_condition(bt_row, bt_previous_row):
@@ -117,6 +95,8 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 bt_wallet = bt_usdt
                 bt_last_ath = max(bt_wallet, bt_last_ath)
 
+                logging.info(f"Vente exécutée le {bt_index} à {bt_sell_price} USD, Solde après frais : {bt_wallet} USD")
+
                 bt_myrow = pd.DataFrame([[
                     bt_index, "Sell", "Sell Market", bt_sell_price,
                     bt_fee, bt_usdt, bt_coin, bt_wallet,
@@ -126,9 +106,23 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 bt_buy_ready = True
                 bt_sell_ready = False
 
+                # Écrire dans InfluxDB après la vente
+                influx_utils.write_to_influx(
+                    measurement="trades",
+                    tags={"type": "sell"},
+                    fields={
+                        "price": bt_sell_price,
+                        "wallet": bt_wallet,
+                        "fiat_amount": bt_usdt,
+                        "crypto_amount": bt_coin
+                    },
+                    timestamp=bt_index
+                )
+
         bt_previous_row = bt_row
 
     # Résumé du backtest
+    logging.info("Résumé du backtest.")
     logging.info(f"Période : [{bt_df.index[0]}] -> [{bt_df.index[-1]}]")
     bt_dt.set_index('date', inplace=True)
     bt_dt.index = pd.to_datetime(bt_dt.index)
@@ -154,8 +148,6 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
     logging.info(f"Trades positifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].mean(), 2)}%")
     logging.info(f"Trades négatifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].mean(), 2)}%")
 
-    # Modifiez ces lignes dans votre fonction de backtesting
-    # Vérifiez que la date est récupérée depuis l'index
     if not bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].empty:
         bt_id_best = bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].idxmax()
         logging.info(f"Meilleur trade : +{round(bt_dt.loc[bt_id_best, 'resultat%'], 2)}% le {bt_id_best}")
@@ -178,11 +170,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
     logging.info(f"#############################################################")
     return bt_dt
 
-# Exemple d'utilisation (à adapter selon vos besoins)
 if __name__ == "__main__":
-    # Charger les données de trading (par exemple depuis un fichier CSV)
-    # data = pd.read_csv('path_to_your_data.csv', parse_dates=['date'], index_col='date')
-
     # Exemple fictif de DataFrame
     dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
     data = pd.DataFrame({
@@ -204,4 +192,4 @@ if __name__ == "__main__":
     data['chop'] = indic.get_chop(data['high'], data['low'], data['close'])
 
     # Exécution du backtest
-    backtest_result = backtest_strategy(data)
+    backtest_result = backtest_strategy(10000, 0, data)
