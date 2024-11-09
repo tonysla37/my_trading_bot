@@ -2,6 +2,7 @@ import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import ta
+
 from binance.client import Client
 from math import floor
 import indicators as indic

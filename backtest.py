@@ -1,3 +1,4 @@
+import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,6 +17,12 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# influx_utils.write_to_influx(
+#     measurement="test_measurement",
+#     fields={"test_field": 123},
+#     timestamp=datetime.datetime.now()
+# )
 
 def backtest_strategy(fiatAmount, cryptoAmount, values):
     logging.info("Début du backtest.")

@@ -5,6 +5,7 @@ import krakenex
 import logging
 import pandas as pd
 import os
+
 from pykrakenapi import KrakenAPI
 from scipy.optimize import fsolve
 from termcolor import colored

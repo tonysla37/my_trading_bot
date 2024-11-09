@@ -1,3 +1,4 @@
+import logging
 import os
 
 from influxdb_client import InfluxDBClient, Point, WriteOptions, WritePrecision
@@ -25,4 +26,5 @@ def write_to_influx(measurement, fields, tags=None, timestamp=None):
         point = point.field(key, value)
     if timestamp:
         point = point.time(timestamp)
+    logging.info(f"Writing to InfluxDB: {point}")
     write_api.write(bucket=bucket, record=point)

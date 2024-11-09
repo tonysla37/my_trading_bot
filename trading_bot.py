@@ -57,7 +57,6 @@ def main():
     temps = trading_config['temps']
     dca = trading_config['dca']
 
-    perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
     risk = info.define_risk(risk_level)
 
     logging.info(f"#############################################################")
@@ -67,6 +66,9 @@ def main():
     logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
     logging.info(f"Niveau de risque défini : {risk_level} ({risk})")
     logging.info(f"#############################################################")
+
+    perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
+
     # logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {perf_percentage['year_percentage']:.2f}%")
     # logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {perf_percentage['monthly_percentage']:.2f}%")
     # logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {perf_percentage['daily_percentage']:.6f}%")
