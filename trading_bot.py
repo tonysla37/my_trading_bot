@@ -57,26 +57,14 @@ def main():
     temps = trading_config['temps']
     dca = trading_config['dca']
 
-    risk = info.define_risk(risk_level)
-
     logging.info(f"#############################################################")
     logging.info(f"Le capital de départ {capital:.2f}€")
     logging.info(f"Le capital cible {cible:.2f}%")
     logging.info(f"L'horizon de placement {temps:.2f} an(s)")
     logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
-    logging.info(f"Niveau de risque défini : {risk_level} ({risk})")
     logging.info(f"#############################################################")
-
+    risk = info.define_risk(risk_level)
     perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
-
-    # logging.info(f"Le taux de croissance annuel composé nécessaire sans dca est d'environ {perf_percentage['year_percentage']:.2f}%")
-    # logging.info(f"Le taux de croissance mensuelle composé nécessaire sans dca est d'environ {perf_percentage['monthly_percentage']:.2f}%")
-    # logging.info(f"Le taux de croissance journalier nécessaire sans dca est d'environ {perf_percentage['daily_percentage']:.6f}%")
-    logging.info(f"La valeur future de l'investissement avec des contributions mensuelles est d'environ {perf_percentage['dca_value']:.2f}€")
-    # logging.info(f"Le taux de croissance annuel composé nécessaire avec dca est d'environ {perf_percentage['year_percentage_dca']:.2f}%")
-    # logging.info(f"Le taux de croissance mensuelle composé nécessaire avec dca est d'environ {perf_percentage['monthly_percentage_dca']:.2f}%")
-    # logging.info(f"Le taux de croissance journalier nécessaire avec dca est d'environ {perf_percentage['daily_percentage_dca']:.6f}%")
-    # logging.info(f"Le taux de croissance mensuel nécessaire pour atteindre {cible} € est d'environ {perf_percentage['ca_percentage']:.6f} % par mois.")
     logging.info(f"#############################################################")
 
     # Initialisation des clients API
@@ -204,8 +192,6 @@ def main():
             res_bollinger=res_bollinger,
             res_macd=res_macd
         )
-
-    # client.close()
 
 if __name__ == '__main__':
     main()

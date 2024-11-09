@@ -151,6 +151,7 @@ def calculate_rendement(capital, cible, temps, dca):
     logging.info(f"Rendement calculé : Annuel {year_percentage}%, Mensuel {monthly_percentage}%, Journalier {daily_percentage}%")
     logging.info(f"Rendement avec DCA : Annuel {year_percentage_dca}%, Mensuel {monthly_percentage_dca}%, Journalier {daily_percentage_dca}%")
     logging.info(f"Croissance annuelle nécessaire pour atteindre {FV}: {ca_percentage}%")
+    logging.info(f"La valeur future de l'investissement avec des contributions mensuelles est d'environ {dca_value}€")
 
     result = {}
     result['year_percentage'] = year_percentage
