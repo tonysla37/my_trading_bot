@@ -10,7 +10,7 @@ def analyse_adi(adi, prev_adi):
     elif adi < prev_adi:
         trend = "bearish"
     
-    logging.info(f"ADI Analysis: Current ADI={adi}, Previous ADI={prev_adi}, Trend={trend}")
+    # logging.info(f"ADI Analysis: Current ADI={adi}, Previous ADI={prev_adi}, Trend={trend}")
     return trend
 
 def analyse_bollinger(high, low, average, close):
@@ -34,7 +34,7 @@ def analyse_bollinger(high, low, average, close):
         "volatility_pc": volatility_pc
     }
     
-    logging.info(f"Bollinger Analysis: Close={close}, High={high}, Low={low}, Average={average}, Result={result}")
+    # logging.info(f"Bollinger Analysis: Close={close}, High={high}, Low={low}, Average={average}, Result={result}")
     return result
 
 def analyse_ema(emas):
@@ -44,7 +44,7 @@ def analyse_ema(emas):
     elif emas[-1] > emas[0]:
         trend = "bearish"
     
-    logging.info(f"EMA Analysis: EMAs={emas}, Trend={trend}")
+    # logging.info(f"EMA Analysis: EMAs={emas}, Trend={trend}")
     return trend
 
 def analyse_macd(macd, signal, histogram):
@@ -54,7 +54,7 @@ def analyse_macd(macd, signal, histogram):
     elif signal > 0 and histogram > 0:
         trend = "bullish"
     
-    logging.info(f"MACD Analysis: MACD={macd}, Signal={signal}, Histogram={histogram}, Trend={trend}")
+    # logging.info(f"MACD Analysis: MACD={macd}, Signal={signal}, Histogram={histogram}, Trend={trend}")
     return trend
 
 def analyse_rsi(rsi, prev_rsi):
@@ -80,7 +80,7 @@ def analyse_rsi(rsi, prev_rsi):
                 rsi_trend = "neutral"
     
     result = {"trend": rsi_trend, "rsi": rsi, "prev_rsi": prev_rsi}
-    logging.info(f"RSI Analysis: Current RSI={rsi}, Previous RSI={prev_rsi}, Result={result}")
+    # logging.info(f"RSI Analysis: Current RSI={rsi}, Previous RSI={prev_rsi}, Result={result}")
     return result
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
@@ -98,7 +98,7 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
             srsi_trend = "neutral"
     
     result = {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
-    logging.info(f"Stochastic RSI Analysis: Current Blue={blue}, Current Orange={orange}, Previous Blue={prev_blue}, Previous Orange={prev_orange}, Result={result}")
+    # logging.info(f"Stochastic RSI Analysis: Current Blue={blue}, Current Orange={orange}, Previous Blue={prev_blue}, Previous Orange={prev_orange}, Result={result}")
     return result
 
 def get_chop(high, low, close, window):
@@ -114,5 +114,5 @@ def get_chop(high, low, close, window):
     lowl = low.rolling(window).min()
     chop_serie = 100 * np.log10((atr.rolling(window).sum()) / (highh - lowl)) / np.log10(window)
     
-    logging.info(f"Choppiness Indicator: Calculated for window={window}")
+    # logging.info(f"Choppiness Indicator: Calculated for window={window}")
     return pd.Series(chop_serie, name="CHOP")

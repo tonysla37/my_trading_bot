@@ -1,8 +1,8 @@
 import datetime
+import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import logging
 
 import indicators as indic
 import trade as trade
@@ -18,11 +18,7 @@ logging.basicConfig(
     ]
 )
 
-# influx_utils.write_to_influx(
-#     measurement="test_measurement",
-#     fields={"test_field": 123},
-#     timestamp=datetime.datetime.now()
-# )
+# influx_utils.test_write()
 
 def backtest_strategy(fiatAmount, cryptoAmount, values):
     logging.info("Début du backtest.")
@@ -83,12 +79,14 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 measurement="trades",
                 tags={"type": "buy"},
                 fields={
-                    "price": bt_buy_price,
-                    "wallet": bt_wallet,
-                    "fiat_amount": bt_usdt,
-                    "crypto_amount": bt_coin
+                    "price": float(bt_buy_price),
+                    "wallet": float(bt_wallet),
+                    "fiat_amount": float(bt_usdt),
+                    "crypto_amount": float(bt_coin),
+                    "close": float(bt_row['close'])
                 },
-                timestamp=bt_index
+                timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
+                # timestamp=int(datetime.datetime.now().timestamp() * 1e9)
             )
 
         # Vente de marché
@@ -118,12 +116,14 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                     measurement="trades",
                     tags={"type": "sell"},
                     fields={
-                        "price": bt_sell_price,
-                        "wallet": bt_wallet,
-                        "fiat_amount": bt_usdt,
-                        "crypto_amount": bt_coin
+                        "price": float(bt_sell_price),
+                        "wallet": float(bt_wallet),
+                        "fiat_amount": float(bt_usdt),
+                        "crypto_amount": float(bt_coin),
+                        "close": float(bt_row['close'])
                     },
-                    timestamp=bt_index
+                    timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
+                    # timestamp=int(datetime.datetime.now().timestamp() * 1e9)
                 )
 
         bt_previous_row = bt_row

@@ -205,5 +205,7 @@ def main():
             res_macd=res_macd
         )
 
+    # client.close()
+
 if __name__ == '__main__':
     main()
