@@ -5,21 +5,20 @@ import pandas as pd
 import time
 import urllib3
 
-# Désactiver les avertissements InsecureRequestWarning
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
+from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient, Point, WriteOptions, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
+# Désactiver les avertissements InsecureRequestWarning
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+load_dotenv()  # Charge les variables d'environnement à partir du fichier .env
+
 # Configuration InfluxDB
-# token = os.getenv('INFLUXDB_TOKEN')
-# org = os.getenv('ORG')
-# bucket = os.getenv('BUCKET')
-# url = os.getenv('URL')
-token = "Pv1-IbSbvfs5U2_JuPWUGiESke9WU1foTIQ6u03Yk07Vh9d17gQvGwX-bHgWua7LAszYVWrRyv9ubnCTcCE-HA=="
-org = "Musashi"
-bucket = "tradingbot"
-url = "https://192.168.6.98:8086"
+token = os.getenv('INFLUXDB_TOKEN')
+org = os.getenv('ORG')
+bucket = os.getenv('BUCKET')
+url = os.getenv('URL')
 
 client = InfluxDBClient(url=url, token=token, org=org, verify_ssl=False)
 

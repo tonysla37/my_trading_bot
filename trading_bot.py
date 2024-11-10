@@ -5,7 +5,6 @@ import pandas as pd
 import yaml
 
 from binance.client import Client
-from dotenv import load_dotenv
 
 import backtest as bt
 import indicators as indic  # Votre module optimisé
@@ -17,9 +16,6 @@ import warnings
 
 # Ignorer tous les FutureWarning
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
-# Charger les variables d'environnement depuis le fichier .env
-load_dotenv()
 
 # Configuration de la journalisation
 logging.basicConfig(
