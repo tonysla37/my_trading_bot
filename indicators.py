@@ -47,12 +47,38 @@ def analyse_ema(emas):
     # logging.info(f"EMA Analysis: EMAs={emas}, Trend={trend}")
     return trend
 
+# def analyse_macd(macd, signal, histogram):
+#     trend = "neutral"
+#     if (signal < 0 and histogram < 0) or (histogram < signal):
+#         trend = "bearish"
+#     elif (signal > 0 and histogram > 0) and (histogram > signal):
+#         trend = "bullish"
+    
+#     # logging.info(f"MACD Analysis: MACD={macd}, Signal={signal}, Histogram={histogram}, Trend={trend}")
+#     return trend
+
+# def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
 def analyse_macd(macd, signal, histogram):
     trend = "neutral"
-    if signal < 0 and histogram < 0:
-        trend = "bearish"
-    elif signal > 0 and histogram > 0:
-        trend = "bullish"
+    
+    # Vérifier s'il y a divergence
+    # bullish_divergence = prev_macd < prev_signal and macd > signal  # Divergence haussière
+    # bearish_divergence = prev_macd > prev_signal and macd < signal  # Divergence baissière
+    bullish_divergence = macd > signal  # Divergence haussière
+    bearish_divergence = macd < signal  # Divergence baissière
+
+    # Évaluation de la tendance
+    if macd > 0:
+        if bullish_divergence:
+            trend = "bullish divergence"
+        elif macd > signal:
+            trend = "bullish"
+    
+    elif macd < 0:
+        if bearish_divergence:
+            trend = "bearish divergence"
+        elif macd < signal:
+            trend = "bearish"
     
     # logging.info(f"MACD Analysis: MACD={macd}, Signal={signal}, Histogram={histogram}, Trend={trend}")
     return trend
@@ -100,6 +126,33 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     result = {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
     # logging.info(f"Stochastic RSI Analysis: Current Blue={blue}, Current Orange={orange}, Previous Blue={prev_blue}, Previous Orange={prev_orange}, Result={result}")
     return result
+
+def analyse_volume(data, volume_column='volume', window=14):
+    """
+    Analyse le volume pour déterminer si la tendance est bullish ou bearish.
+
+    :param data: DataFrame contenant les données de trading, y compris les volumes.
+    :param volume_column: Nom de la colonne représentant le volume.
+    :param window: Période de la moyenne mobile pour le volume.
+    :return: Tendance ('bullish', 'bearish', ou 'neutral').
+    """
+    # Calcul de la moyenne mobile du volume
+    data['volume_ma'] = data[volume_column].rolling(window=window).mean()
+
+    # Dernières valeurs de volume et de moyenne mobile
+    current_volume = data[volume_column].iloc[-1]
+    current_volume_ma = data['volume_ma'].iloc[-1]
+
+    trend = 'neutral'  # Valeur par défaut
+
+    # Conditions de tendance
+    if current_volume > current_volume_ma:
+        trend = 'bullish'
+    elif current_volume < current_volume_ma:
+        trend = 'bearish'
+    
+    return trend
+
 
 def get_chop(high, low, close, window):
     ''' Choppiness indicator
