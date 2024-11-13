@@ -6,7 +6,7 @@ import numpy as np
 
 import indicators as indic
 import trade as trade
-import influx_utils
+import influx_utils as idb
 
 # Configuration de la journalisation
 logging.basicConfig(
@@ -75,7 +75,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
             bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
 
             # Écrire dans InfluxDB après l'achat
-            influx_utils.write_to_influx(
+            idb.write_to_influx(
                 measurement="trades",
                 tags={"type": "buy"},
                 fields={
@@ -112,7 +112,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 bt_sell_ready = False
 
                 # Écrire dans InfluxDB après la vente
-                influx_utils.write_to_influx(
+                idb.write_to_influx(
                     measurement="trades",
                     tags={"type": "sell"},
                     fields={

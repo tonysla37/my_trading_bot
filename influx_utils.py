@@ -53,7 +53,32 @@ def write_to_influx(measurement, fields, tags=None, timestamp=None):
     except Exception as e:
         logging.error(f"Error writing to InfluxDB: {e}")
 
-    # write_api.flush() 
+def get_influx_data(database, measurement, start_time, end_time):
+    # Connect to InfluxDB
+    client_db = InfluxDBClient(url=url, token=token, org=org, verify_ssl=False, database=database)
+
+    # Construct your query
+    query = f'SELECT * FROM "{measurement}" WHERE time >= \'{start_time}\' AND time <= \'{end_time}\''
+
+    # Execute the query
+    result = client_db.query(query)
+
+    # Convert the result to pandas DataFrame
+    df = pd.DataFrame(list(result.get_points()))
+    
+    # Return the DataFrame
+    if not df.empty:
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+    return df
+
+def get_historical_compare_data(database, measurement, days=30):
+    # Calculer les dates de début et de fin
+    end_time = datetime.datetime.utcnow()
+    start_time = end_time - datetime.timedelta(days=days)
+
+    df = get_influx_data(database, measurement, start_time, end_time)
+    return df
 
 def test_write():
     write_api = client.write_api(write_options=WriteOptions(batch_size=1, flush_interval=1_000))

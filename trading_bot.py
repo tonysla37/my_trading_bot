@@ -8,9 +8,9 @@ from binance.client import Client
 
 import backtest as bt
 import indicators as indic  # Votre module optimisé
+import influx_utils as idb
 import informations as info  # Votre module optimisé
 import trade as trade  # Votre module optimisé
-
 
 import warnings
 
@@ -107,6 +107,9 @@ def main():
     # Préparer les données avec les indicateurs techniques
     df = info.prepare_data(df)
 
+    # Exemple d'utilisation data d'influxdb
+    df_idb = idb.get_influx_data('trades', 'your_measurement', '2023-01-01', '2023-11-01')
+
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
         res_ema = indic.analyse_ema([
@@ -141,6 +144,8 @@ def main():
             signal=df['macd_signal'].iloc[-1],
             histogram=df['macd_histo'].iloc[-1]
         )
+        res_volume = indic.analyse_volume(df)  # Assurez-vous que df['volume'] existe
+
         logging.info("Analyse des indicateurs terminée")
     except Exception as e:
         logging.error(f"Erreur lors de l'analyse des indicateurs : {e}")
@@ -159,6 +164,7 @@ def main():
     logging.info(f"État RSI : {res_rsi}")
     logging.info(f"État Stoch RSI : {res_stoch_rsi}")
     logging.info(f"Bollinger : {res_bollinger}")
+    logging.info(f"Volume : {res_volume}")
 
     if backtest:
         # Exécuter le backtest

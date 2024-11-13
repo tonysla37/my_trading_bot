@@ -128,20 +128,11 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     return result
 
 def analyse_volume(data, volume_column='volume', window=14):
-    """
-    Analyse le volume pour déterminer si la tendance est bullish ou bearish.
-
-    :param data: DataFrame contenant les données de trading, y compris les volumes.
-    :param volume_column: Nom de la colonne représentant le volume.
-    :param window: Période de la moyenne mobile pour le volume.
-    :return: Tendance ('bullish', 'bearish', ou 'neutral').
-    """
-    # Calcul de la moyenne mobile du volume
+    """Analyse le volume pour déterminer si la tendance est bullish ou bearish."""
     data['volume_ma'] = data[volume_column].rolling(window=window).mean()
 
-    # Dernières valeurs de volume et de moyenne mobile
-    current_volume = data[volume_column].iloc[-1]
-    current_volume_ma = data['volume_ma'].iloc[-1]
+    current_volume = data[volume_column].iloc[-1]  # Valeur actuelle de volume
+    current_volume_ma = data['volume_ma'].iloc[-1]  # Moyenne mobile du volume
 
     trend = 'neutral'  # Valeur par défaut
 
@@ -152,6 +143,7 @@ def analyse_volume(data, volume_column='volume', window=14):
         trend = 'bearish'
     
     return trend
+
 
 
 def get_chop(high, low, close, window):
