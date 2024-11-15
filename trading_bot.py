@@ -198,6 +198,8 @@ def main():
             monthly_analysis = run_analysis(data=monthly_data, fiat_amount=monthly_fiat_amount, crypto_amount=monthly_crypto_amount)
             if not monthly_trade_in_progress:
                 monthly_trade_in_progress = run_trading(client=monthly_client, data=monthly_data, analysis=monthly_analysis, trade_in_progress=monthly_trade_in_progress)
+            else:
+                logging.info(f"Trade monthly deja en cours")
 
             logging.info(f"#############################################################")
             logging.info("Execution weekly at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -205,6 +207,8 @@ def main():
             weekly_analysis = run_analysis(data=weekly_data, fiat_amount=weekly_fiat_amount, crypto_amount=weekly_crypto_amount)
             if not weekly_trade_in_progress:            
                 weekly_trade_in_progress = run_trading(client=weekly_client, data=weekly_data, analysis=weekly_analysis, trade_in_progress=weekly_trade_in_progress)
+            else:
+                logging.info(f"Trade weekly deja en cours")
 
             logging.info(f"#############################################################")
             logging.info("Execution daily at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -212,6 +216,8 @@ def main():
             daily_analysis = run_analysis(data=daily_data, fiat_amount=daily_fiat_amount, crypto_amount=daily_crypto_amount)
             if not daily_trade_in_progress:
                 daily_trade_in_progress = run_trading(client=daily_client, data=daily_data, analysis=daily_analysis, trade_in_progress=daily_trade_in_progress)
+            else:
+                logging.info(f"Trade daily deja en cours")
 
         except Exception as e:
             logging.error(f"An error occurred: {e}")
