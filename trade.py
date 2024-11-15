@@ -185,7 +185,7 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
                 "possible_loss": float(possible_loss),
                 "R": float(R)
             }
-            idb.write_trade_to_influx(fields=fields, trade_type="buy", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+            idb.write_trade_to_influx(fields=fields, trade_type="buy", timestamp=int(datetime.now().timestamp() * 1e9))
 
             trade_in_progress = True
 
@@ -215,7 +215,7 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
                 "pair_symbol": pair_symbol,
                 "quantity": float(quantity),
             }
-            idb.write_trade_to_influx(fields=fields, trade_type="sell", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+            idb.write_trade_to_influx(fields=fields, trade_type="sell", timestamp=int(datetime.now().timestamp() * 1e9))
 
             trade_in_progress = False
     else:

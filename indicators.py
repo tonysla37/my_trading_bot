@@ -149,7 +149,7 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
         "prev_orange": prev_orange,
         "trend": srsi_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def analyse_volume(data, volume_column='volume', window=14):
@@ -172,7 +172,7 @@ def analyse_volume(data, volume_column='volume', window=14):
         "current_volume_ma": current_volume_ma,
         "trend": vol_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def get_chop(high, low, close, window):
