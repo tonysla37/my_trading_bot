@@ -89,7 +89,7 @@ def buy_condition(analysis):
 
 def sell_condition(analysis):
     return (
-        analysis['ema'] == "bearish"
+        analysis['ema']['trend'] == "bearish"
         # and analysis['rsi']['trend'] == "overbuy"
         # and analysis['stoch_rsi']['trend'] == "overbuy"
         and analysis['macd']['trend'] == "bearish"
