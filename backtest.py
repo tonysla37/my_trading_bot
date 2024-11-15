@@ -89,7 +89,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
             # )
             # timestamp_now = int(datetime.utcnow().timestamp() * 1e9)  # Timestamp en nanosecondes
             timestamp_now = pd.to_datetime(bt_index).timestamp() * 1e9
-            idb.write_trade_to_influx(price=float(bt_buy_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="buy", timestamp=timestamp_now)
+            idb.write_bt_trade_to_influx(price=float(bt_buy_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="buy", timestamp=timestamp_now)
 
         # Vente de marché
         elif trade.sell_condition(bt_row, bt_previous_row):
@@ -128,7 +128,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 # )
                 # timestamp_now = int(datetime.utcnow().timestamp() * 1e9)  # Timestamp en nanosecondes
                 timestamp_now = pd.to_datetime(bt_index).timestamp() * 1e9
-                idb.write_trade_to_influx(price=float(bt_sell_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="sell", timestamp=timestamp_now)
+                idb.write_bt_trade_to_influx(price=float(bt_sell_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="sell", timestamp=timestamp_now)
 
         bt_previous_row = bt_row
 

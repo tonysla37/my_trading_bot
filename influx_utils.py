@@ -22,6 +22,7 @@ url = os.getenv('URL')
 
 client = InfluxDBClient(url=url, token=token, org=org, verify_ssl=False)
 trades_measurement = "trades"
+bt_trades_measurement = "bt_trades"
 indicators_measurement = "indicators"
 
 ###################### GENERIC FUNCTIONS ######################
@@ -94,7 +95,7 @@ def test_write():
         print(f"Error during test write: {e}")
 
 ###################### TRADES FUNCTIONS ######################
-def write_trade_to_influx(price, wallet, fiat_amount, crypto_amount, close, trade_type, timestamp):
+def write_bt_trade_to_influx(price, wallet, fiat_amount, crypto_amount, close, trade_type, timestamp):
     tags = {"type": trade_type}
     fields = {
                 "price": price,
@@ -103,7 +104,44 @@ def write_trade_to_influx(price, wallet, fiat_amount, crypto_amount, close, trad
                 "crypto_amount": crypto_amount,
                 "close": close
     }
-    write_to_influx(trades_measurement, fields, tags, timestamp)
+    write_to_influx(bt_trades_measurement, fields, tags, timestamp)
+
+def get_bt_trades(start_time, end_time):
+    query = f'''
+    from(bucket: "{bucket}")
+    |> range(start: {start_time.isoformat()}..{end_time.isoformat()})
+    |> filter(fn: (r) => r._measurement == "{bt_trades_measurement}")
+    '''
+    
+    result = client.query_api().query(query, org=org)
+    
+    # Convertir le résultat en DataFrame
+    trades = []
+    for table in result:
+        for record in table.records:
+            trades.append({
+                "time": record.get_time(),
+                "type": record.values.get("type"),
+                "price": record.get_value_by_key("price"),
+                "wallet": record.get_value_by_key("wallet"),
+                "fiat_amount": record.get_value_by_key("fiat_amount"),
+                "crypto_amount": record.get_value_by_key("crypto_amount"),
+                "close": record.get_value_by_key("close"),
+            })
+
+    return pd.DataFrame(trades)
+
+### UTILISATION ###
+# Obtenir des données d'un intervalle
+# start_time = datetime.utcnow() - timedelta(hours=1)
+# end_time = datetime.utcnow()
+# trades_df = get_bt_trades(start_time, end_time)
+
+# # Afficher les transactions récupérées
+# print(trades_df)
+
+def write_trade_to_influx(fields, trade_type, timestamp):
+    write_to_influx(measurement=trades_measurement, fields=fields, tags={"type": trade_type}, timestamp=timestamp)
 
 def get_trades(start_time, end_time):
     query = f'''
@@ -130,16 +168,7 @@ def get_trades(start_time, end_time):
 
     return pd.DataFrame(trades)
 
-### UTILISATION ###
-# Obtenir des données d'un intervalle
-# start_time = datetime.utcnow() - timedelta(hours=1)
-# end_time = datetime.utcnow()
-# trades_df = get_trades(start_time, end_time)
-
-# # Afficher les transactions récupérées
-# print(trades_df)
-
 
 ###################### INDICATORS FUNCTIONS ######################
 def write_indicator_to_influx(fields, indicator, timestamp):
-    write_to_influx(indicators_measurement, fields, {"type": indicator}, timestamp)
+    write_to_influx(measurement=indicators_measurement, fields=fields, tags={"type": indicator}, timestamp=timestamp)

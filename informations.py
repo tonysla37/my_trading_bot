@@ -17,6 +17,7 @@ def prepare_data(df):
     Returns:
         pd.DataFrame: DataFrame enrichi avec les indicateurs techniques.
     """
+    logging.info("Traitement des données récupérées.")
     try:
         # Calcul des indicateurs techniques
         df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()

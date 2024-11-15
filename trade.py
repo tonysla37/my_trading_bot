@@ -165,7 +165,7 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
             buy_ready = False
             sell_ready = True
 
-            logging.info(f"Achat à {buy_price}, Stop loss à {stop_loss}, TP1 à {take_profit_1}")
+            # logging.info(f"Achat à {buy_price}, Stop loss à {stop_loss}, TP1 à {take_profit_1}")
             logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
             
@@ -179,16 +179,21 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
             # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, sell_order_tp1))
 
             # Écrire dans InfluxDB après l'achat
-            influx_utils.write_to_influx(
-                measurement="live_trades",
-                tags={"type": "buy"},
-                fields={
-                    "price": buy_price,
-                    "wallet": fiat_amount,
-                    "crypto_amount": crypto_amount
-                },
-                timestamp=datetime.datetime.now()
-            )
+            fields = {
+                "fiat_amount": float(fiat_amount),
+                "crypto_amount": float(crypto_amount),
+                "price": float(buy_price),
+                "pair_symbol": float(pair_symbol),
+                "quantity": float(quantity_buy),
+                "sl": float(stop_loss),
+                "sl_quantity": float(sl_quantity),
+                "tp1": float(take_profit_1),
+                "tp1_quantity": float(tp1_quantity),
+                "possible_gain": float(possible_gain),
+                "possible_loss": float(possible_loss),
+                "R": float(R)
+            }
+            idb.write_trade_to_influx(fields=fields, trade_type="buy", timestamp=int(datetime.utcnow().timestamp() * 1e9))
 
     # Condition de vente
     elif sell_condition(values.iloc[-2], values.iloc[-3]):
@@ -213,16 +218,14 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
             #     asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
             
             # Écrire dans InfluxDB après la vente
-            influx_utils.write_to_influx(
-                measurement="live_trades",
-                tags={"type": "sell"},
-                fields={
-                    "price": sell_price,
-                    "wallet": fiat_amount,
-                    "crypto_amount": crypto_amount
-                },
-                timestamp=datetime.datetime.now()
-            )
+            fields = {
+                "fiat_amount": float(fiat_amount),
+                "crypto_amount": float(crypto_amount),
+                "price": float(sell_price),
+                "pair_symbol": float(pair_symbol),
+                "quantity": float(quantity_sell),
+            }
+            idb.write_trade_to_influx(fields=fields, trade_type="sell", timestamp=int(datetime.utcnow().timestamp() * 1e9))
     else:
         logging.info("Aucune opportunité de trade")
     #     asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, "Aucune opportunité de trade"))

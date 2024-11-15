@@ -11,7 +11,7 @@ trading:
   buy_ready: true
   sell_ready: true
   bench_mode: true
-  backtest: true
+  backtest: false
   risk_level: "Max"
   capital: 100
   cible: 200000
