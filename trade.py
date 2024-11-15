@@ -133,7 +133,6 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
     
     # Journalisation des indicateurs
     logging.info(f"Run trading Advisor at {now}")
-    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
 
     price = values['close'].iloc[-1]
     quantity = info.truncate(analysis['trade_amount'], my_truncate)
@@ -169,8 +168,10 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
 
             logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
 
             # Écrire dans InfluxDB après l'achat
             fields = {
@@ -207,8 +208,10 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
 
             if sell_order:
                 logging.info(f"Ordre : {sell_order}")
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
                 asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
-            
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+
             # Écrire dans InfluxDB après la vente
             fields = {
                 "fiat_amount": float(analysis['fiat_amount']),
@@ -222,7 +225,5 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
             trade_in_progress = False
     else:
         logging.info("Aucune opportunité de trade")
-        # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, "Aucune opportunité de trade"))
 
-    asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
     return trade_in_progress
