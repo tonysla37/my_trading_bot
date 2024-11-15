@@ -5,6 +5,7 @@ import krakenex
 import logging
 import pandas as pd
 import os
+import ssl
 
 from datetime import datetime, timedelta
 from pykrakenapi import KrakenAPI
@@ -14,7 +15,8 @@ from termcolor import colored
 import informations as info
 import influx_utils as idb
 
-DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
+# DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
+DISCORD_WEBHOOK_URL = "https://discordapp.com/api/webhooks/984026868552433674/yw6FcEhCZYPzgFdKJG6aAo7m52xGRIHLs9g0OocEQzYSofCGqCjsagtUMcTh26ewpOJs"
 
 # Initialisation de l'API Kraken
 API_KEY = os.getenv('KRAKEN_API_KEY')
@@ -23,14 +25,17 @@ api = krakenex.API(key=API_KEY, secret=API_SECRET)
 kraken_api = KrakenAPI(api)
 
 async def send_webhook_message(webhook_url, content):
+    # Crée un contexte SSL qui ignore la vérification
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+
     async with aiohttp.ClientSession() as session:
         data = {
             'content': content
         }
-        async with session.post(webhook_url, json=data) as response:
-            if response.status == 204:
-                logging.info("Message sent successfully!")
-            else:
+        async with session.post(webhook_url, json=data, ssl=ssl_context) as response:
+            if response.status != 204:
                 logging.error(f"Failed to send message: {response.status} - {await response.text()}")
 
 def klines_to_dataframe(klines):
