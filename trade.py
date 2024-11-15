@@ -77,31 +77,24 @@ def get_kraken_data(api, symbol, interval, since):
         logging.error(f"Erreur lors de la récupération des données Kraken : {e}")
         return pd.DataFrame()
 
-# Conditions d'achat et de vente
-# def buy_condition(row, previous_row):
-#     return (
-#         row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200']
-#         and row['stoch_rsi'] < 0.82
-#     )
-
-# def sell_condition(row, previous_row):
-#     return (
-#         row['ema200'] > row['ema7']
-#         and row['stoch_rsi'] > 0.2
-#     )
-
 def buy_condition(analysis):
     return (
-        analysis['res_ema'] == "bullish"
-        and analysis['res_rsi']['trend'] == "bullish"
-        and analysis['res_stoch_rsi']['trend'] == "bullish"
+        analysis['ema']['trend'] == "bullish"
+        # and analysis['rsi']['trend'] == "oversell"
+        # and analysis['stoch_rsi']['trend'] == "oversell"
+        and analysis['macd']['trend'] == "bullish"
+        # and analysis['bollinger']['trend'] == "oversell"
+        and analysis['volume']['trend'] == "bullish"
     )
 
 def sell_condition(analysis):
     return (
-        analysis['res_ema'] == "bearish"
-        and analysis['res_rsi']['trend'] == "bearish"
-        and analysis['res_stoch_rsi']['trend'] == "bearish"
+        analysis['ema'] == "bearish"
+        # and analysis['rsi']['trend'] == "overbuy"
+        # and analysis['stoch_rsi']['trend'] == "overbuy"
+        and analysis['macd']['trend'] == "bearish"
+        # and analysis['bollinger']['trend'] == "overbuy"
+        and analysis['volume']['trend'] == "bearish"
     )
 
 # Fonctions pour placer les ordres
@@ -141,7 +134,6 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
     quantity = info.truncate(analysis['trade_amount'], my_truncate)
 
     # Condition d'achat
-    # if buy_condition(values.iloc[-2], values.iloc[-3]) and not trade_in_progress:
     if buy_condition(analysis) and not trade_in_progress:
         if float(analysis['fiat_amount']) > 5 and buy_ready:
 
@@ -198,7 +190,6 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
             trade_in_progress = True
 
     # Condition de vente
-    # elif sell_condition(values.iloc[-2], values.iloc[-3]) and trade_in_progress:
     elif sell_condition(analysis) and trade_in_progress:
         if float(analysis['crypto_amount']) > analysis['min_token'] and sell_ready:
             if bench_mode:

@@ -151,12 +151,12 @@ def run_analysis(data, fiat_amount, crypto_amount):
         "position": position,
         "fiat_amount": fiat_amount,
         "crypto_amount": crypto_amount,
-        "res_ema": res_ema,
-        "res_rsi": res_rsi,
-        "res_stoch_rsi": res_stoch_rsi,
-        "res_macd": res_macd,
-        "res_bollinger": res_bollinger,
-        "res_volume": res_volume,
+        "ema": res_ema,
+        "rsi": res_rsi,
+        "stoch_rsi": res_stoch_rsi,
+        "macd": res_macd,
+        "bollinger": res_bollinger,
+        "volume": res_volume,
     }
 
     return analysis

@@ -17,7 +17,7 @@ def analyse_adi(adi, prev_adi):
     fields = {
         "adi": adi,
         "prev_adi": prev_adi,
-        "trend": bol_trend
+        "trend": adi_trend
     }   
     idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
     return fields
@@ -76,15 +76,15 @@ def analyse_macd(macd, signal, histogram):
 
     # Évaluation de la tendance
     if macd > 0:
-        if bullish_divergence:
-            macd_trend = "bullish divergence"
-        elif macd > signal:
+        # if bullish_divergence:
+        #     macd_trend = "bullish divergence"
+        if macd > signal:
             macd_trend = "bullish"
     
     elif macd < 0:
-        if bearish_divergence:
-            macd_trend = "bearish divergence"
-        elif macd < signal:
+        # if bearish_divergence:
+        #     macd_trend = "bearish divergence"
+        if macd < signal:
             macd_trend = "bearish"
     
     fields = {
