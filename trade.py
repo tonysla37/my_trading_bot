@@ -183,7 +183,7 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
                 "fiat_amount": float(fiat_amount),
                 "crypto_amount": float(crypto_amount),
                 "price": float(buy_price),
-                "pair_symbol": float(pair_symbol),
+                "pair_symbol": pair_symbol,
                 "quantity": float(quantity_buy),
                 "sl": float(stop_loss),
                 "sl_quantity": float(sl_quantity),
@@ -222,7 +222,7 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
                 "fiat_amount": float(fiat_amount),
                 "crypto_amount": float(crypto_amount),
                 "price": float(sell_price),
-                "pair_symbol": float(pair_symbol),
+                "pair_symbol": pair_symbol,
                 "quantity": float(quantity_sell),
             }
             idb.write_trade_to_influx(fields=fields, trade_type="sell", timestamp=int(datetime.utcnow().timestamp() * 1e9))
