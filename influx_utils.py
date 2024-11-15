@@ -21,7 +21,10 @@ bucket = os.getenv('BUCKET')
 url = os.getenv('URL')
 
 client = InfluxDBClient(url=url, token=token, org=org, verify_ssl=False)
+trades_measurement = "trades"
+indicators_measurement = "indicators"
 
+###################### GENERIC FUNCTIONS ######################
 def round_fields(fields, decimals=2):
     for key, value in fields.items():
         if isinstance(value, float):  # Vérifie que c'est bien un float
@@ -80,6 +83,7 @@ def get_historical_compare_data(database, measurement, days=30):
     df = get_influx_data(database, measurement, start_time, end_time)
     return df
 
+###################### TESTS FUNCTIONS ######################
 def test_write():
     write_api = client.write_api(write_options=WriteOptions(batch_size=1, flush_interval=1_000))
     point = Point("trades").tag("type", "test").field("crypto_amount", 1.0).field("fiat_amount", 1000.0).time(int(time.time() * 1e9))
@@ -88,3 +92,54 @@ def test_write():
         print("Test write successful")
     except Exception as e:
         print(f"Error during test write: {e}")
+
+###################### TRADES FUNCTIONS ######################
+def write_trade_to_influx(price, wallet, fiat_amount, crypto_amount, close, trade_type, timestamp):
+    tags = {"type": trade_type}
+    fields = {
+                "price": price,
+                "wallet": wallet,
+                "fiat_amount": fiat_amount,
+                "crypto_amount": crypto_amount,
+                "close": close
+    }
+    write_to_influx(trades_measurement, fields, tags, timestamp)
+
+def get_trades(start_time, end_time):
+    query = f'''
+    from(bucket: "{bucket}")
+    |> range(start: {start_time.isoformat()}..{end_time.isoformat()})
+    |> filter(fn: (r) => r._measurement == "{trades_measurement}")
+    '''
+    
+    result = client.query_api().query(query, org=org)
+    
+    # Convertir le résultat en DataFrame
+    trades = []
+    for table in result:
+        for record in table.records:
+            trades.append({
+                "time": record.get_time(),
+                "type": record.values.get("type"),
+                "price": record.get_value_by_key("price"),
+                "wallet": record.get_value_by_key("wallet"),
+                "fiat_amount": record.get_value_by_key("fiat_amount"),
+                "crypto_amount": record.get_value_by_key("crypto_amount"),
+                "close": record.get_value_by_key("close"),
+            })
+
+    return pd.DataFrame(trades)
+
+### UTILISATION ###
+# Obtenir des données d'un intervalle
+# start_time = datetime.utcnow() - timedelta(hours=1)
+# end_time = datetime.utcnow()
+# trades_df = get_trades(start_time, end_time)
+
+# # Afficher les transactions récupérées
+# print(trades_df)
+
+
+###################### INDICATORS FUNCTIONS ######################
+def write_indicator_to_influx(fields, indicator, timestamp):
+    write_to_influx(indicators_measurement, fields, {"type": indicator}, timestamp)

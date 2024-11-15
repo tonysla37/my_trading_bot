@@ -2,16 +2,25 @@ import pandas as pd
 import numpy as np
 import logging
 
-# Analyse des indicateurs techniques
+import influx_utils as idb
+
+from datetime import datetime, timedelta
+
+###################### Analyse des indicateurs techniques ######################
 def analyse_adi(adi, prev_adi):
-    trend = "neutral"
+    adi_trend = "neutral"
     if adi > prev_adi:
-        trend = "bullish"
+        adi_trend = "bullish"
     elif adi < prev_adi:
-        trend = "bearish"
+        adi_trend = "bearish"
     
-    # logging.info(f"ADI Analysis: Current ADI={adi}, Previous ADI={prev_adi}, Trend={trend}")
-    return trend
+    fields = {
+        "adi": adi,
+        "prev_adi": prev_adi,
+        "trend": bol_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 def analyse_bollinger(high, low, average, close):
     spread_band = high - low
@@ -26,40 +35,38 @@ def analyse_bollinger(high, low, average, close):
     else:
         bol_trend = "over_sma" if close > average else "under_sma"
 
-    result = {
-        "trend": bol_trend,
+    fields = {
         "spread_band": spread_band,
         "spread_price": spread_price,
         "volatility": volatility,
-        "volatility_pc": volatility_pc
-    }
-    
-    # logging.info(f"Bollinger Analysis: Close={close}, High={high}, Low={low}, Average={average}, Result={result}")
-    return result
+        "volatility_pc": volatility_pc,
+        "trend": bol_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="bollinger", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 def analyse_ema(emas):
-    trend = "neutral"
+    ema_trend = "neutral"
     if all(emas[i] > emas[i+1] for i in range(len(emas)-1)):
-        trend = "bullish"
+        ema_trend = "bullish"
     elif emas[-1] > emas[0]:
-        trend = "bearish"
+        ema_trend = "bearish"
     
-    # logging.info(f"EMA Analysis: EMAs={emas}, Trend={trend}")
-    return trend
-
-# def analyse_macd(macd, signal, histogram):
-#     trend = "neutral"
-#     if (signal < 0 and histogram < 0) or (histogram < signal):
-#         trend = "bearish"
-#     elif (signal > 0 and histogram > 0) and (histogram > signal):
-#         trend = "bullish"
-    
-#     # logging.info(f"MACD Analysis: MACD={macd}, Signal={signal}, Histogram={histogram}, Trend={trend}")
-#     return trend
+    fields = {
+        "ema7": emas[0],
+        "ema30": emas[1],
+        "ema50": emas[2],
+        "ema100": emas[3],
+        "ema150": emas[4],
+        "ema200": emas[5],
+        "trend": ema_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="ema", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 # def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
 def analyse_macd(macd, signal, histogram):
-    trend = "neutral"
+    macd_trend = "neutral"
     
     # Vérifier s'il y a divergence
     # bullish_divergence = prev_macd < prev_signal and macd > signal  # Divergence haussière
@@ -70,18 +77,26 @@ def analyse_macd(macd, signal, histogram):
     # Évaluation de la tendance
     if macd > 0:
         if bullish_divergence:
-            trend = "bullish divergence"
+            macd_trend = "bullish divergence"
         elif macd > signal:
-            trend = "bullish"
+            macd_trend = "bullish"
     
     elif macd < 0:
         if bearish_divergence:
-            trend = "bearish divergence"
+            macd_trend = "bearish divergence"
         elif macd < signal:
-            trend = "bearish"
+            macd_trend = "bearish"
     
-    # logging.info(f"MACD Analysis: MACD={macd}, Signal={signal}, Histogram={histogram}, Trend={trend}")
-    return trend
+    fields = {
+        "macd": macd,
+        "signal": signal,
+        # "prev_macd": prev_macd,
+        # "prev_signal": prev_signal,
+        "histogram": histogram,
+        "trend": macd_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="macd", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 def analyse_rsi(rsi, prev_rsi):
     rsi_trend = "undefined"
@@ -105,9 +120,13 @@ def analyse_rsi(rsi, prev_rsi):
             else:
                 rsi_trend = "neutral"
     
-    result = {"trend": rsi_trend, "rsi": rsi, "prev_rsi": prev_rsi}
-    # logging.info(f"RSI Analysis: Current RSI={rsi}, Previous RSI={prev_rsi}, Result={result}")
-    return result
+    fields = {
+        "rsi": rsi,
+        "prev_rsi": prev_rsi,
+        "trend": rsi_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     srsi_trend = "undefined"
@@ -122,10 +141,16 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
             srsi_trend = "bearish"
         else:
             srsi_trend = "neutral"
-    
-    result = {"trend": srsi_trend, "blue": blue, "orange": orange, "prev_blue": prev_blue, "prev_orange": prev_orange}
-    # logging.info(f"Stochastic RSI Analysis: Current Blue={blue}, Current Orange={orange}, Previous Blue={prev_blue}, Previous Orange={prev_orange}, Result={result}")
-    return result
+        
+    fields = {
+        "blue": blue,
+        "orange": orange,
+        "prev_blue": prev_blue,
+        "prev_orange": prev_orange,
+        "trend": srsi_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 def analyse_volume(data, volume_column='volume', window=14):
     """Analyse le volume pour déterminer si la tendance est bullish ou bearish."""
@@ -134,17 +159,21 @@ def analyse_volume(data, volume_column='volume', window=14):
     current_volume = data[volume_column].iloc[-1]  # Valeur actuelle de volume
     current_volume_ma = data['volume_ma'].iloc[-1]  # Moyenne mobile du volume
 
-    trend = 'neutral'  # Valeur par défaut
+    vol_trend = 'neutral'  # Valeur par défaut
 
     # Conditions de tendance
     if current_volume > current_volume_ma:
-        trend = 'bullish'
+        vol_trend = 'bullish'
     elif current_volume < current_volume_ma:
-        trend = 'bearish'
+        vol_trend = 'bearish'
     
-    return trend
-
-
+    fields = {
+        "current_volume": current_volume,
+        "current_volume_ma": current_volume_ma,
+        "trend": vol_trend
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    return fields
 
 def get_chop(high, low, close, window):
     ''' Choppiness indicator
@@ -160,4 +189,16 @@ def get_chop(high, low, close, window):
     chop_serie = 100 * np.log10((atr.rolling(window).sum()) / (highh - lowl)) / np.log10(window)
     
     # logging.info(f"Choppiness Indicator: Calculated for window={window}")
+
+    fields = {
+        "high": high,
+        "low": low,
+        "close": close,
+        "highh": highh,
+        "lowl": lowl,
+        "window": window,
+        "trend": chop_serie
+    }   
+    idb.write_indicator_to_influx(fields=fields, indicator="chop_index", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    # return fields
     return pd.Series(chop_serie, name="CHOP")

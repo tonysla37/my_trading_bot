@@ -1,4 +1,3 @@
-import datetime
 import logging
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,6 +6,8 @@ import numpy as np
 import indicators as indic
 import trade as trade
 import influx_utils as idb
+
+from datetime import datetime, timedelta
 
 # Configuration de la journalisation
 logging.basicConfig(
@@ -21,7 +22,6 @@ logging.basicConfig(
 # influx_utils.test_write()
 
 def backtest_strategy(fiatAmount, cryptoAmount, values):
-    logging.info("Début du backtest.")
     bt_df = values.copy()
     bt_dt = pd.DataFrame(columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
 
@@ -75,19 +75,21 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
             bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
 
             # Écrire dans InfluxDB après l'achat
-            idb.write_to_influx(
-                measurement="trades",
-                tags={"type": "buy"},
-                fields={
-                    "price": float(bt_buy_price),
-                    "wallet": float(bt_wallet),
-                    "fiat_amount": float(bt_usdt),
-                    "crypto_amount": float(bt_coin),
-                    "close": float(bt_row['close'])
-                },
-                timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
-                # timestamp=int(datetime.datetime.now().timestamp() * 1e9)
-            )
+            # idb.write_to_influx(
+            #     measurement="trades",
+            #     tags={"type": "buy"},
+            #     fields={
+            #         "price": float(bt_buy_price),
+            #         "wallet": float(bt_wallet),
+            #         "fiat_amount": float(bt_usdt),
+            #         "crypto_amount": float(bt_coin),
+            #         "close": float(bt_row['close'])
+            #     },
+            #     timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
+            # )
+            # timestamp_now = int(datetime.utcnow().timestamp() * 1e9)  # Timestamp en nanosecondes
+            timestamp_now = pd.to_datetime(bt_index).timestamp() * 1e9
+            idb.write_trade_to_influx(price=float(bt_buy_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="buy", timestamp=timestamp_now)
 
         # Vente de marché
         elif trade.sell_condition(bt_row, bt_previous_row):
@@ -112,19 +114,21 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
                 bt_sell_ready = False
 
                 # Écrire dans InfluxDB après la vente
-                idb.write_to_influx(
-                    measurement="trades",
-                    tags={"type": "sell"},
-                    fields={
-                        "price": float(bt_sell_price),
-                        "wallet": float(bt_wallet),
-                        "fiat_amount": float(bt_usdt),
-                        "crypto_amount": float(bt_coin),
-                        "close": float(bt_row['close'])
-                    },
-                    timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
-                    # timestamp=int(datetime.datetime.now().timestamp() * 1e9)
-                )
+                # idb.write_to_influx(
+                #     measurement="trades",
+                #     tags={"type": "sell"},
+                #     fields={
+                #         "price": float(bt_sell_price),
+                #         "wallet": float(bt_wallet),
+                #         "fiat_amount": float(bt_usdt),
+                #         "crypto_amount": float(bt_coin),
+                #         "close": float(bt_row['close'])
+                #     },
+                #     timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
+                # )
+                # timestamp_now = int(datetime.utcnow().timestamp() * 1e9)  # Timestamp en nanosecondes
+                timestamp_now = pd.to_datetime(bt_index).timestamp() * 1e9
+                idb.write_trade_to_influx(price=float(bt_sell_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="sell", timestamp=timestamp_now)
 
         bt_previous_row = bt_row
 

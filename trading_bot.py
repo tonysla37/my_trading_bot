@@ -5,6 +5,7 @@ import pandas as pd
 import yaml
 
 from binance.client import Client
+from datetime import datetime, timedelta
 
 import backtest as bt
 import indicators as indic  # Votre module optimisé
@@ -26,6 +27,10 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Obtenir la date d'aujourd'hui et Formater la date au format 'YYYY-MM-DD'
+today = datetime.now()
+today_format = today.strftime('%Y-%m-%d')
 
 # Charger le fichier de configuration YAML
 def load_config(file_path):
@@ -107,8 +112,8 @@ def main():
     # Préparer les données avec les indicateurs techniques
     df = info.prepare_data(df)
 
-    # Exemple d'utilisation data d'influxdb
-    df_idb = idb.get_influx_data('trades', 'your_measurement', '2023-01-01', '2023-11-01')
+    # # Exemple d'utilisation data d'influxdb
+    # df_idb = idb.get_influx_data(database, 'trades', '2017-01-01', today_format)
 
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
@@ -127,12 +132,6 @@ def main():
             prev_blue=df['stochastic'].iloc[-3],
             prev_orange=df['stoch_signal'].iloc[-3]
         )
-        # res_stoch_rsi = indic.analyse_stoch_rsi(
-        #     blue=df['stochastic'].iloc[-1],
-        #     orange=df['stoch_signal'].iloc[-1],
-        #     prev_blue=df['stochastic'].iloc[-3],
-        #     prev_orange=df['stoch_signal'].iloc[-3]
-        # )
         res_bollinger = indic.analyse_bollinger(
             high=df['bol_high'].iloc[-1],
             low=df['bol_low'].iloc[-1],
