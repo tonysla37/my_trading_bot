@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import pandas as pd
+import time
 import yaml
 
 from binance.client import Client
@@ -28,122 +29,99 @@ logging.basicConfig(
     ]
 )
 
-# Obtenir la date d'aujourd'hui et Formater la date au format 'YYYY-MM-DD'
-today = datetime.now()
-today_format = today.strftime('%Y-%m-%d')
-
 # Charger le fichier de configuration YAML
 def load_config(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
 
-def main():
-    # Charger la configuration
-    config = load_config('config.yaml')
-    
-    # Extraire les paramètres de configuration
-    trading_config = config['trading']
-    pair_symbol = trading_config['pair_symbol']
-    fiat_symbol = trading_config['fiat_symbol']
-    crypto_symbol = trading_config['crypto_symbol']
-    my_truncate = trading_config['my_truncate']
-    protection = trading_config['protection']
-    buy_ready = trading_config['buy_ready']
-    sell_ready = trading_config['sell_ready']
-    bench_mode = trading_config['bench_mode']
-    backtest = trading_config['backtest']
-    risk_level = trading_config['risk_level']
-    capital = trading_config['capital']
-    cible = trading_config['cible']
-    temps = trading_config['temps']
-    dca = trading_config['dca']
+# Charger la configuration
+config = load_config('config.yaml')
 
-    logging.info(f"#############################################################")
-    logging.info(f"Le capital de départ {capital:.2f}€")
-    logging.info(f"Le capital cible {cible:.2f}%")
-    logging.info(f"L'horizon de placement {temps:.2f} an(s)")
-    logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
-    logging.info(f"#############################################################")
-    risk = info.define_risk(risk_level)
-    perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
-    logging.info(f"#############################################################")
+# Extraire les paramètres de configuration
+trading_config = config['trading']
+pair_symbol = trading_config['pair_symbol']
+fiat_symbol = trading_config['fiat_symbol']
+crypto_symbol = trading_config['crypto_symbol']
+my_truncate = trading_config['my_truncate']
+protection = trading_config['protection']
+buy_ready = trading_config['buy_ready']
+sell_ready = trading_config['sell_ready']
+bench_mode = trading_config['bench_mode']
+backtest = trading_config['backtest']
+risk_level = trading_config['risk_level']
+capital = trading_config['capital']
+cible = trading_config['cible']
+temps = trading_config['temps']
+dca = trading_config['dca']
 
+# Obtenir la date d'aujourd'hui et Formater la date au format 'YYYY-MM-DD'
+today = datetime.now()
+today_format = today.strftime('%Y-%m-%d')
+
+perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
+risk = info.define_risk(risk_level)
+
+# Initialiser la variable pour suivre l'état du trade
+monthly_trade_in_progress = False
+weekly_trade_in_progress = False
+daily_trade_in_progress = False
+
+# Client Binance avec clés API
+API_KEY = os.getenv('BINANCE_API_KEY')
+API_SECRET = os.getenv('BINANCE_API_SECRET')
+
+def gather_datas(key, secret, interval, start):
+    # Your existing trading logic goes here
     # Initialisation des clients API
     if bench_mode:
         client = Client()  # Client sans clés API pour le backtest
-        df = trade.get_binance_data(client, "BTCUSDT", Client.KLINE_INTERVAL_1HOUR, "01 January 2017")
         fiat_amount = 10000.0
         crypto_amount = 1
     else:
-        # Client Binance avec clés API
-        API_KEY = os.getenv('BINANCE_API_KEY')
-        API_SECRET = os.getenv('BINANCE_API_SECRET')
-        client = Client(API_KEY, API_SECRET)
-
-        # Récupérer les données de Binance
-        try:
-            data = client.get_historical_klines(
-                symbol=pair_symbol,
-                interval=Client.KLINE_INTERVAL_1HOUR,
-                start_str=str(int(time.time()) - 100 * 3600),
-                end_str=str(int(time.time()))
-            )
-            df = pd.DataFrame(data, columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume',
-                'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'
-            ])
-            for col in ['open', 'high', 'low', 'close', 'volume']:
-                df[col] = pd.to_numeric(df[col])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            df.set_index('timestamp', inplace=True)
-            logging.info("Données Binance récupérées en mode live")
-        except Exception as e:
-            logging.error(f"Erreur lors de la récupération des données en mode live : {e}")
-            return
-
-        # Obtenir les soldes
+        client = Client(key, secret)
         fiat_amount = trade.get_balance(client, fiat_symbol)
         crypto_amount = trade.get_balance(client, crypto_symbol)
 
-    if df.empty:
+    data = trade.get_binance_data(client, pair_symbol, interval, start)
+
+    if data.empty:
         logging.error("Le DataFrame est vide. Arrêt du script.")
         return
 
     # Préparer les données avec les indicateurs techniques
-    df = info.prepare_data(df)
+    data = info.prepare_data(data)
+    return client, data, fiat_amount, crypto_amount
 
-    # # Exemple d'utilisation data d'influxdb
-    # df_idb = idb.get_influx_data(database, 'trades', '2017-01-01', today_format)
-
+def run_analysis(data, fiat_amount, crypto_amount):
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
         res_ema = indic.analyse_ema([
-            df['ema7'].iloc[-1],
-            df['ema30'].iloc[-1],
-            df['ema50'].iloc[-1],
-            df['ema100'].iloc[-1],
-            df['ema150'].iloc[-1],
-            df['ema200'].iloc[-1]
+            data['ema7'].iloc[-1],
+            data['ema30'].iloc[-1],
+            data['ema50'].iloc[-1],
+            data['ema100'].iloc[-1],
+            data['ema150'].iloc[-1],
+            data['ema200'].iloc[-1]
         ])
-        res_rsi = indic.analyse_rsi(rsi=df['rsi'].iloc[-1], prev_rsi=df['rsi'].iloc[-3])
+        res_rsi = indic.analyse_rsi(rsi=data['rsi'].iloc[-1], prev_rsi=data['rsi'].iloc[-3])
         res_stoch_rsi = indic.analyse_stoch_rsi(
-            blue=df['stochastic'].iloc[-1],
-            orange=df['stoch_signal'].iloc[-1],
-            prev_blue=df['stochastic'].iloc[-3],
-            prev_orange=df['stoch_signal'].iloc[-3]
+            blue=data['stochastic'].iloc[-1],
+            orange=data['stoch_signal'].iloc[-1],
+            prev_blue=data['stochastic'].iloc[-3],
+            prev_orange=data['stoch_signal'].iloc[-3]
         )
         res_bollinger = indic.analyse_bollinger(
-            high=df['bol_high'].iloc[-1],
-            low=df['bol_low'].iloc[-1],
-            average=df['bol_medium'].iloc[-1],
-            close=df['close'].iloc[-1]
+            high=data['bol_high'].iloc[-1],
+            low=data['bol_low'].iloc[-1],
+            average=data['bol_medium'].iloc[-1],
+            close=data['close'].iloc[-1]
         )
         res_macd = indic.analyse_macd(
-            macd=df['macd'].iloc[-1],
-            signal=df['macd_signal'].iloc[-1],
-            histogram=df['macd_histo'].iloc[-1]
+            macd=data['macd'].iloc[-1],
+            signal=data['macd_signal'].iloc[-1],
+            histogram=data['macd_histo'].iloc[-1]
         )
-        res_volume = indic.analyse_volume(df)  # Assurez-vous que df['volume'] existe
+        res_volume = indic.analyse_volume(data)  # Assurez-vous que data['volume'] existe
 
         logging.info("Analyse des indicateurs terminée")
     except Exception as e:
@@ -151,48 +129,95 @@ def main():
         return
 
     # Définir les variables de trading
-    actual_price = df['close'].iloc[-1]
+    actual_price = data['close'].iloc[-1]
     trade_amount = (float(fiat_amount) * risk) / actual_price
     min_token = 5 / actual_price
     position = (float(fiat_amount) * risk) / protection["sl_level"]
 
     # Afficher les informations pertinentes
-    logging.info(f"#############################################################")
+    # logging.info(f"#############################################################")
     logging.info(f"Prix actuel : {actual_price}, Solde USD : {fiat_amount}, Solde BTC : {crypto_amount}, Position de trading : {position}")
     logging.info(f"EMA : {res_ema}")
     logging.info(f"État RSI : {res_rsi}")
     logging.info(f"État Stoch RSI : {res_stoch_rsi}")
+    logging.info(f"MACD : {res_macd}")
     logging.info(f"Bollinger : {res_bollinger}")
     logging.info(f"Volume : {res_volume}")
 
+    analysis = {
+        "actual_price": actual_price,
+        "trade_amount": trade_amount,
+        "min_token": min_token,
+        "position": position,
+        "fiat_amount": fiat_amount,
+        "crypto_amount": crypto_amount,
+        "res_ema": res_ema,
+        "res_rsi": res_rsi,
+        "res_stoch_rsi": res_stoch_rsi,
+        "res_macd": res_macd,
+        "res_bollinger": res_bollinger,
+        "res_volume": res_volume,
+    }
+
+    return analysis
+
+def run_trading(client, data, analysis, trade_in_progress):
     if backtest:
         # Exécuter le backtest
-        logging.info(f"#############################################################")
+        # logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        bt.backtest_strategy(fiat_amount, crypto_amount, df)
+        bt.backtest_strategy(analysis.fiat_amount, analysis.crypto_amount, data)
+        pass
     else:
         # Exécuter les actions de trading
-        logging.info(f"#############################################################")
+        # logging.info(f"#############################################################")
         logging.info("Exécution des actions de trading en live")
-        trade.trade_action(
-            client=client,
+        trade_in_progress = trade.trade_action(
             bench_mode=bench_mode,
             pair_symbol=pair_symbol,
-            fiat_amount=fiat_amount,
-            crypto_amount=crypto_amount,
-            values=df,
+            values=data,
             buy_ready=buy_ready,
             sell_ready=sell_ready,
-            min_token=min_token,
-            trade_amount=trade_amount,
             my_truncate=my_truncate,
             protection=protection,
-            res_ema=res_ema,
-            res_rsi=res_rsi,
-            res_stoch_rsi=res_stoch_rsi,
-            res_bollinger=res_bollinger,
-            res_macd=res_macd
+            analysis=analysis,
+            trade_in_progress=trade_in_progress
         )
+        return trade_in_progress
+
+def main():
+    global monthly_trade_in_progress
+    global weekly_trade_in_progress
+    global daily_trade_in_progress
+    while True:
+        try:
+            # Log or print the time to track execution
+            logging.info(f"#############################################################")
+            logging.info("Execution monthly at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            monthly_client, monthly_data, monthly_fiat_amount, monthly_crypto_amount = gather_datas(key=API_KEY, secret=API_SECRET, interval=Client.KLINE_INTERVAL_1MONTH, start="1 Jan, 2020")
+            monthly_analysis = run_analysis(data=monthly_data, fiat_amount=monthly_fiat_amount, crypto_amount=monthly_crypto_amount)
+            if not monthly_trade_in_progress:
+                monthly_trade_in_progress = run_trading(client=monthly_client, data=monthly_data, analysis=monthly_analysis, trade_in_progress=monthly_trade_in_progress)
+
+            logging.info(f"#############################################################")
+            logging.info("Execution weekly at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            weekly_client, weekly_data, weekly_fiat_amount, weekly_crypto_amount = gather_datas(key=API_KEY, secret=API_SECRET, interval=Client.KLINE_INTERVAL_1WEEK, start="1 Jan, 2020")
+            weekly_analysis = run_analysis(data=weekly_data, fiat_amount=weekly_fiat_amount, crypto_amount=weekly_crypto_amount)
+            if not weekly_trade_in_progress:            
+                weekly_trade_in_progress = run_trading(client=weekly_client, data=weekly_data, analysis=weekly_analysis, trade_in_progress=weekly_trade_in_progress)
+
+            logging.info(f"#############################################################")
+            logging.info("Execution daily at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            daily_client, daily_data, daily_fiat_amount, daily_crypto_amount = gather_datas(key=API_KEY, secret=API_SECRET, interval=Client.KLINE_INTERVAL_1DAY, start="1 Jan, 2020")
+            daily_analysis = run_analysis(data=daily_data, fiat_amount=daily_fiat_amount, crypto_amount=daily_crypto_amount)
+            if not daily_trade_in_progress:
+                daily_trade_in_progress = run_trading(client=daily_client, data=daily_data, analysis=daily_analysis, trade_in_progress=daily_trade_in_progress)
+
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+        # Wait for 60 seconds before the next execution
+        time.sleep(60)
 
 if __name__ == '__main__':
     main()

@@ -199,6 +199,6 @@ def get_chop(high, low, close, window):
         "window": window,
         "trend": chop_serie
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="chop_index", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    # idb.write_indicator_to_influx(fields=fields, indicator="chop_index", timestamp=int(datetime.utcnow().timestamp() * 1e9))
     # return fields
     return pd.Series(chop_serie, name="CHOP")

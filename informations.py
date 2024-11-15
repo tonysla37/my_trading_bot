@@ -149,6 +149,12 @@ def calculate_rendement(capital, cible, temps, dca):
     else:
         ca_percentage = "negatif"
 
+    logging.info(f"#############################################################")
+    logging.info(f"Le capital de départ {capital:.2f}€")
+    logging.info(f"Le capital cible {cible:.2f}%")
+    logging.info(f"L'horizon de placement {temps:.2f} an(s)")
+    logging.info(f"Le montant d'investiment mensuel {dca:.2f}€")
+    logging.info(f"#############################################################")
     logging.info(f"Rendement calculé : Annuel {year_percentage}%, Mensuel {monthly_percentage}%, Journalier {daily_percentage}%")
     logging.info(f"Rendement avec DCA : Annuel {year_percentage_dca}%, Mensuel {monthly_percentage_dca}%, Journalier {daily_percentage_dca}%")
     logging.info(f"Croissance annuelle nécessaire pour atteindre {FV}: {ca_percentage}%")
@@ -165,3 +171,4 @@ def calculate_rendement(capital, cible, temps, dca):
     result['ca_percentage'] = ca_percentage
 
     return result
+

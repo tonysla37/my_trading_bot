@@ -6,19 +6,19 @@ import logging
 import pandas as pd
 import os
 
+from datetime import datetime, timedelta
 from pykrakenapi import KrakenAPI
 from scipy.optimize import fsolve
 from termcolor import colored
 
 import informations as info
-import influx_utils
+import influx_utils as idb
 
-# Configuration des clés API et des URLs (à sécuriser via des variables d'environnement)
-API_KEY = os.getenv('KRAKEN_API_KEY')
-API_SECRET = os.getenv('KRAKEN_API_SECRET')
 DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
 
 # Initialisation de l'API Kraken
+API_KEY = os.getenv('KRAKEN_API_KEY')
+API_SECRET = os.getenv('KRAKEN_API_SECRET')
 api = krakenex.API(key=API_KEY, secret=API_SECRET)
 kraken_api = KrakenAPI(api)
 
@@ -33,16 +33,19 @@ async def send_webhook_message(webhook_url, content):
             else:
                 logging.error(f"Failed to send message: {response.status} - {await response.text()}")
 
+def klines_to_dataframe(klines):
+    return pd.DataFrame(klines, columns=[
+        'timestamp', 'open', 'high', 'low', 'close', 'volume',
+        'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'
+    ])
+
 def get_binance_data(client, symbol, interval, start_str):
     """
     Récupère les données historiques de Binance.
     """
     try:
         klines = client.get_historical_klines(symbol, interval, start_str)
-        df = pd.DataFrame(klines, columns=[
-            'timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time',
-            'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore'
-        ])
+        df = klines_to_dataframe(klines)
         # Convertir les colonnes en types numériques
         for col in ['open', 'high', 'low', 'close', 'volume']:
             df[col] = pd.to_numeric(df[col])
@@ -75,23 +78,30 @@ def get_kraken_data(api, symbol, interval, since):
         return pd.DataFrame()
 
 # Conditions d'achat et de vente
-def buy_condition(row, previous_row):
+# def buy_condition(row, previous_row):
+#     return (
+#         row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200']
+#         and row['stoch_rsi'] < 0.82
+#     )
+
+# def sell_condition(row, previous_row):
+#     return (
+#         row['ema200'] > row['ema7']
+#         and row['stoch_rsi'] > 0.2
+#     )
+
+def buy_condition(analysis):
     return (
-        row['ema7'] > row['ema30'] > row['ema50'] > row['ema100'] > row['ema150'] > row['ema200']
-        and row['stoch_rsi'] < 0.82
+        analysis['res_ema'] == "bullish"
+        and analysis['res_rsi']['trend'] == "bullish"
+        and analysis['res_stoch_rsi']['trend'] == "bullish"
     )
 
-def sell_condition(row, previous_row):
+def sell_condition(analysis):
     return (
-        row['ema200'] > row['ema7']
-        and row['stoch_rsi'] > 0.2
-    )
-
-def enter_in_trade(res_ema, res_rsi, res_stoch_rsi, res_bollinger, res_macd):
-    return (
-        res_ema == "bullish"
-        and res_rsi["trend"] == "bullish"
-        and res_stoch_rsi["trend"] == "bullish"
+        analysis['res_ema'] == "bearish"
+        and analysis['res_rsi']['trend'] == "bearish"
+        and analysis['res_stoch_rsi']['trend'] == "bearish"
     )
 
 # Fonctions pour placer les ordres
@@ -120,71 +130,61 @@ def place_order(order_type, pair, volume, price=None):
         return None
 
 # Fonction principale de trading
-def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, values, buy_ready, sell_ready, min_token, trade_amount, my_truncate, protection, res_ema, res_rsi, res_stoch_rsi, res_bollinger, res_macd):
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_truncate, protection, analysis, trade_in_progress):
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Journalisation des indicateurs
-    logging.info(f"Trading Advisor at {now}")
-    logging.info(f"Indicators: EMA={res_ema}, RSI={res_rsi['trend']}, StochRSI={res_stoch_rsi['trend']}, Bollinger={res_bollinger['trend']}, MACD={res_macd}")
-    
-    # # Exécuter la fonction asynchrone
+    logging.info(f"Run trading Advisor at {now}")
     # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
-    # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'ema => {res_ema}'))
-    # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'rsi => {res_rsi["trend"]}'))
-    # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'stoch_rsi => {res_stoch_rsi["trend"]}'))
-    # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'bollinger => {res_bollinger["trend"]}'))
-    # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'macd => {res_macd}'))
+
+    price = values['close'].iloc[-1]
+    quantity = info.truncate(analysis['trade_amount'], my_truncate)
 
     # Condition d'achat
-    if buy_condition(values.iloc[-2], values.iloc[-3]):
-        if float(fiat_amount) > 5 and buy_ready:
-            buy_price = values['close'].iloc[-1]
-            quantity_buy = info.truncate(trade_amount, my_truncate)
+    # if buy_condition(values.iloc[-2], values.iloc[-3]) and not trade_in_progress:
+    if buy_condition(analysis) and not trade_in_progress:
+        if float(analysis['fiat_amount']) > 5 and buy_ready:
+
             sl_level = protection["sl_level"]
             tp1_level = protection["tp1_level"]
             sl_amount = protection["sl_amount"]
             tp1_amount = protection["tp1_amount"]
 
-            stop_loss = buy_price - sl_level * buy_price
-            take_profit_1 = buy_price + tp1_level * buy_price
-            sl_quantity = sl_amount * float(quantity_buy)
-            tp1_quantity = tp1_amount * float(quantity_buy)
-            possible_gain = (take_profit_1 - buy_price) * float(quantity_buy)
-            possible_loss = (buy_price - stop_loss) * float(quantity_buy)
+            stop_loss = price - sl_level * price
+            take_profit_1 = price + tp1_level * price
+            sl_quantity = sl_amount * float(quantity)
+            tp1_quantity = tp1_amount * float(quantity)
+            possible_gain = (take_profit_1 - price) * float(quantity)
+            possible_loss = (price - stop_loss) * float(quantity)
             R = possible_gain / possible_loss if possible_loss != 0 else 0
 
             if bench_mode:
-                buy_order = f"Buy Order placé pour la quantité : {quantity_buy}"
+                buy_order = f"Buy Order placé pour la quantité : {quantity}"
                 sell_order_sl = f"SL Order placé à {stop_loss} pour la quantité : {sl_quantity}"
                 sell_order_tp1 = f"TP1 Order placé à {take_profit_1} pour la quantité : {tp1_quantity}"
             else:
-                buy_order = place_order('buy', pair_symbol, quantity_buy, buy_price)
+                buy_order = place_order('buy', pair_symbol, quantity, price)
                 sell_order_sl = place_order('sell', pair_symbol, sl_quantity, stop_loss)
                 sell_order_tp1 = place_order('sell', pair_symbol, tp1_quantity, take_profit_1)
 
             buy_ready = False
             sell_ready = True
 
-            # logging.info(f"Achat à {buy_price}, Stop loss à {stop_loss}, TP1 à {take_profit_1}")
             logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
             
             # # Envoyer les messages via webhook
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Achat à {buy_price}"))
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Stop loss à {stop_loss}"))
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"TP1 à {take_profit_1}"))
+
             # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, buy_order))
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, sell_order_sl))
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, sell_order_tp1))
+            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}"))
 
             # Écrire dans InfluxDB après l'achat
             fields = {
-                "fiat_amount": float(fiat_amount),
-                "crypto_amount": float(crypto_amount),
-                "price": float(buy_price),
+                "fiat_amount": float(analysis['fiat_amount']),
+                "crypto_amount": float(analysis['crypto_amount']),
+                "price": float(price),
                 "pair_symbol": pair_symbol,
-                "quantity": float(quantity_buy),
+                "quantity": float(quantity),
                 "sl": float(stop_loss),
                 "sl_quantity": float(sl_quantity),
                 "tp1": float(take_profit_1),
@@ -195,39 +195,41 @@ def trade_action(client, bench_mode, pair_symbol, fiat_amount, crypto_amount, va
             }
             idb.write_trade_to_influx(fields=fields, trade_type="buy", timestamp=int(datetime.utcnow().timestamp() * 1e9))
 
-    # Condition de vente
-    elif sell_condition(values.iloc[-2], values.iloc[-3]):
-        if float(crypto_amount) > min_token and sell_ready:
-            sell_price = values['close'].iloc[-1]
-            quantity_sell = info.truncate(crypto_amount, my_truncate)
+            trade_in_progress = True
 
+    # Condition de vente
+    # elif sell_condition(values.iloc[-2], values.iloc[-3]) and trade_in_progress:
+    elif sell_condition(analysis) and trade_in_progress:
+        if float(analysis['crypto_amount']) > analysis['min_token'] and sell_ready:
             if bench_mode:
-                sell_order = f"Sell Order placé pour la quantité : {quantity_sell}"
+                sell_order = f"Sell Order placé pour la quantité : {quantity}"
             else:
-                sell_order = place_order('sell', pair_symbol, quantity_sell)
+                sell_order = place_order('sell', pair_symbol, quantity)
             
             buy_ready = True
             sell_ready = False
 
-            logging.info(f"Vente de {quantity_sell}")
-            logging.info(f"Ordre : {sell_order}")
-            
-            # # Envoyer les messages via webhook
-            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity_sell}"))
-            # if sell_order:
+            logging.info(f"Vente de {quantity}")
+            # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity}"))
+
+            if sell_order:
+                logging.info(f"Ordre : {sell_order}")
             #     asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
             
             # Écrire dans InfluxDB après la vente
             fields = {
-                "fiat_amount": float(fiat_amount),
-                "crypto_amount": float(crypto_amount),
-                "price": float(sell_price),
+                "fiat_amount": float(analysis['fiat_amount']),
+                "crypto_amount": float(analysis['crypto_amount']),
+                "price": float(price),
                 "pair_symbol": pair_symbol,
-                "quantity": float(quantity_sell),
+                "quantity": float(quantity),
             }
             idb.write_trade_to_influx(fields=fields, trade_type="sell", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+
+            trade_in_progress = False
     else:
         logging.info("Aucune opportunité de trade")
     #     asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, "Aucune opportunité de trade"))
 
     # asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+    return trade_in_progress
