@@ -85,21 +85,21 @@ def get_kraken_data(api, symbol, interval, since):
 def buy_condition(analysis):
     return (
         analysis['ema']['trend'] == "bullish"
-        # and analysis['rsi']['trend'] == "oversell"
-        # and analysis['stoch_rsi']['trend'] == "oversell"
+        and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
+        and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
         and analysis['macd']['trend'] == "bullish"
         # and analysis['bollinger']['trend'] == "oversell"
-        and analysis['volume']['trend'] == "bullish"
+        # and analysis['volume']['trend'] == "bullish"
     )
 
 def sell_condition(analysis):
     return (
         analysis['ema']['trend'] == "bearish"
-        # and analysis['rsi']['trend'] == "overbuy"
-        # and analysis['stoch_rsi']['trend'] == "overbuy"
+        and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
+        and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
         and analysis['macd']['trend'] == "bearish"
         # and analysis['bollinger']['trend'] == "overbuy"
-        and analysis['volume']['trend'] == "bearish"
+        # and analysis['volume']['trend'] == "bearish"
     )
 
 # Fonctions pour placer les ordres

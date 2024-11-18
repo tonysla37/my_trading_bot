@@ -65,6 +65,7 @@ risk = info.define_risk(risk_level)
 monthly_trade_in_progress = False
 weekly_trade_in_progress = False
 daily_trade_in_progress = False
+intraday_trade_in_progress = False
 
 # Client Binance avec clés API
 API_KEY = os.getenv('BINANCE_API_KEY')
@@ -190,6 +191,7 @@ def trading(key, secret, time_interval):
     global monthly_trade_in_progress
     global weekly_trade_in_progress
     global daily_trade_in_progress
+    global intraday_trade_in_progress
 
     match time_interval:
         case "monthly":
@@ -201,6 +203,9 @@ def trading(key, secret, time_interval):
         case "daily":
             interval = Client.KLINE_INTERVAL_1DAY
             trade_in_progress = daily_trade_in_progress
+        case "intraday":
+            interval = Client.KLINE_INTERVAL_1HOUR
+            trade_in_progress = intraday_trade_in_progress
 
     # Log or print the time to track execution
     logging.info(f"#############################################################")
@@ -221,7 +226,7 @@ def main():
             monthly_result = trading(key=API_KEY, secret=API_SECRET, time_interval="monthly")
             weekly_result = trading(key=API_KEY, secret=API_SECRET, time_interval="weekly")
             daily_result = trading(key=API_KEY, secret=API_SECRET, time_interval="daily")
-
+            intraday_result = trading(key=API_KEY, secret=API_SECRET, time_interval="intraday")
         except Exception as e:
             logging.error(f"An error occurred: {e}")
 
