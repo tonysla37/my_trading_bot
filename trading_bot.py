@@ -120,6 +120,8 @@ def run_analysis(data, fiat_amount, crypto_amount):
         res_macd = indic.analyse_macd(
             macd=data['macd'].iloc[-1],
             signal=data['macd_signal'].iloc[-1],
+            prev_macd=data['macd'].iloc[-2],
+            prev_signal=data['macd_signal'].iloc[-2],
             histogram=data['macd_histo'].iloc[-1]
         )
         res_volume = indic.analyse_volume(data)  # Assurez-vous que data['volume'] existe

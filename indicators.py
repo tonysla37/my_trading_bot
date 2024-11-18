@@ -19,7 +19,7 @@ def analyse_adi(adi, prev_adi):
         "prev_adi": prev_adi,
         "trend": adi_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def analyse_bollinger(high, low, average, close):
@@ -42,7 +42,7 @@ def analyse_bollinger(high, low, average, close):
         "volatility_pc": volatility_pc,
         "trend": bol_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="bollinger", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="bollinger", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def analyse_ema(emas):
@@ -61,71 +61,81 @@ def analyse_ema(emas):
         "ema200": emas[5],
         "trend": ema_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="ema", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="ema", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
-# def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
-def analyse_macd(macd, signal, histogram):
+def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
+# def analyse_macd(macd, signal, histogram):
     macd_trend = "neutral"
     
     # Vérifier s'il y a divergence
-    # bullish_divergence = prev_macd < prev_signal and macd > signal  # Divergence haussière
-    # bearish_divergence = prev_macd > prev_signal and macd < signal  # Divergence baissière
-    bullish_divergence = macd > signal  # Divergence haussière
-    bearish_divergence = macd < signal  # Divergence baissière
+    bullish_divergence = prev_macd < prev_signal and macd > signal  # Divergence haussière
+    bearish_divergence = prev_macd > prev_signal and macd < signal  # Divergence baissière
+    # bullish_divergence = macd > signal  # Divergence haussière
+    # bearish_divergence = macd < signal  # Divergence baissière
 
     # Évaluation de la tendance
     if macd > 0:
-        # if bullish_divergence:
-        #     macd_trend = "bullish divergence"
+        if bullish_divergence:
+            macd_trend = "bullish divergence"
         if macd > signal:
             macd_trend = "bullish"
     
     elif macd < 0:
-        # if bearish_divergence:
-        #     macd_trend = "bearish divergence"
-        if macd < signal:
-            macd_trend = "bearish"
+        if bearish_divergence:
+            macd_trend = "bearish divergence"
+        # if macd < signal:
+        #     macd_trend = "bearish"
     
     fields = {
         "macd": macd,
         "signal": signal,
-        # "prev_macd": prev_macd,
-        # "prev_signal": prev_signal,
+        "prev_macd": prev_macd,
+        "prev_signal": prev_signal,
         "histogram": histogram,
         "trend": macd_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="macd", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="macd", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def analyse_rsi(rsi, prev_rsi):
     rsi_trend = "undefined"
+
+    # Analyse des zones de surachat et de survente
     if rsi <= 30:
-        rsi_trend = "oversell"
+        rsi_trend = "oversold"
     elif rsi >= 70:
-        rsi_trend = "overbuy"
+        rsi_trend = "overbought"
     else:
+        # Zone neutre
         if rsi > 50:
             if rsi > prev_rsi:
-                rsi_trend = "bullish"
+                rsi_trend = "bullish trend"
             elif rsi < prev_rsi:
                 rsi_trend = "bearish divergence"
             else:
                 rsi_trend = "neutral"
         elif rsi < 50:
             if rsi < prev_rsi:
-                rsi_trend = "bearish"
+                rsi_trend = "bearish trend"
             elif rsi > prev_rsi:
                 rsi_trend = "bullish divergence"
             else:
                 rsi_trend = "neutral"
+    
+    # Ajout d'une nuance sur la force de la tendance
+    if rsi_trend in ["bullish trend", "bearish trend"]:
+        if abs(rsi - prev_rsi) < 5:
+            rsi_trend += " (weak)"
+        else:
+            rsi_trend += " (strong)"
     
     fields = {
         "rsi": rsi,
         "prev_rsi": prev_rsi,
         "trend": rsi_trend
     }   
-    idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.utcnow().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
