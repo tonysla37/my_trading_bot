@@ -25,10 +25,10 @@ def analyse_adi(adi, prev_adi):
         trend_strength = "strong"
     
     fields = {
+        "trend": adi_trend,
         "adi": adi,
         "prev_adi": prev_adi,
-        "strength": trend_strength,
-        "trend": adi_trend
+        "strength": trend_strength
     }  
     idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -62,13 +62,13 @@ def analyse_bollinger(high, low, average, close):
         extreme_condition = "extreme oversell"
 
     fields = {
+        "trend": bol_trend,
         "spread_band": spread_band,
         "spread_price": spread_price,
         "volatility": volatility,
         "volatility_pc": volatility_pc,
         "signal_strength": signal_strength,
-        "extreme_condition": extreme_condition,
-        "trend": bol_trend
+        "extreme_condition": extreme_condition
     }
     idb.write_indicator_to_influx(fields=fields, indicator="bollinger", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -81,13 +81,13 @@ def analyse_ema(emas):
         ema_trend = "bearish"
     
     fields = {
+        "trend": ema_trend,
         "ema7": emas[0],
         "ema30": emas[1],
         "ema50": emas[2],
         "ema100": emas[3],
         "ema150": emas[4],
-        "ema200": emas[5],
-        "trend": ema_trend
+        "ema200": emas[5]
     }
     idb.write_indicator_to_influx(fields=fields, indicator="ema", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -122,11 +122,11 @@ def analyse_fear_and_greed(index_value):
         recommendation = "consider taking profits; sell positions"
 
     fields = {
+        "trend": trend,
         "index_value": index_value,
         "sentiment": sentiment,
         "strength": strength,
-        "recommendation": recommendation,
-        "trend": trend,
+        "recommendation": recommendation
     }
     idb.write_indicator_to_influx(fields=fields, indicator="fear_and_greed", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -155,12 +155,12 @@ def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
         #     macd_trend = "bearish"
     
     fields = {
+        "trend": macd_trend,
         "macd": macd,
         "signal": signal,
         "prev_macd": prev_macd,
         "prev_signal": prev_signal,
-        "histogram": histogram,
-        "trend": macd_trend
+        "histogram": histogram
     }   
     idb.write_indicator_to_influx(fields=fields, indicator="macd", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -198,9 +198,9 @@ def analyse_rsi(rsi, prev_rsi):
             rsi_trend += " (strong)"
     
     fields = {
+        "trend": rsi_trend,
         "rsi": rsi,
-        "prev_rsi": prev_rsi,
-        "trend": rsi_trend
+        "prev_rsi": prev_rsi
     }   
     idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -233,13 +233,13 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
         divergence = "potential divergence"
 
     fields = {
+        "trend": srsi_trend,
         "blue": blue,
         "orange": orange,
         "prev_blue": prev_blue,
         "prev_orange": prev_orange,
         "strength": srsi_strength,
-        "divergence": divergence,
-        "trend": srsi_trend
+        "divergence": divergence
     } 
     idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -281,13 +281,13 @@ def analyse_volume(data, volume_column='volume', short_window=5, long_window=14)
         price_direction = ""
 
     fields = {
+        "trend": vol_trend,
         "current_volume": current_volume,
         "current_long_ma": current_long_ma,
         "volume_trend_change": volume_trend_change,
         "volume_alert": volume_alert,
         "whale_activity": whale_activity,
-        "price_direction": price_direction,
-        "trend": vol_trend
+        "price_direction": price_direction
     }
     idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -308,13 +308,13 @@ def get_chop(high, low, close, window):
     # logging.info(f"Choppiness Indicator: Calculated for window={window}")
 
     fields = {
+        "trend": chop_serie,
         "high": high,
         "low": low,
         "close": close,
         "highh": highh,
         "lowl": lowl,
-        "window": window,
-        "trend": chop_serie
+        "window": window
     }   
     # idb.write_indicator_to_influx(fields=fields, indicator="chop_index", timestamp=int(datetime.utcnow().timestamp() * 1e9))
     # return fields

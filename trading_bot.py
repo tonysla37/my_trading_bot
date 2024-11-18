@@ -100,7 +100,10 @@ def run_analysis(data, fiat_amount, crypto_amount):
         # Récupération de l'indice
         bitcoin_fear_and_greed_index = info.get_bitcoin_fear_and_greed_index()
         # print(f"Bitcoin Fear and Greed Index: {bitcoin_fear_and_greed_index}")
-
+        res_adi = indic.analyse_adi(
+            data['adi'].iloc[-1],
+            data['adi'].iloc[-2]
+        )
         res_ema = indic.analyse_ema([
             data['ema7'].iloc[-1],
             data['ema30'].iloc[-1],
@@ -149,13 +152,15 @@ def run_analysis(data, fiat_amount, crypto_amount):
     # Afficher les informations pertinentes
     # logging.info(f"#############################################################")
     logging.info(f"Prix actuel : {actual_price}, Solde USD : {fiat_amount}, Solde BTC : {crypto_amount}, Position de trading : {position}")
-    logging.info(f"Volume : {res_volume}")
-    logging.info(f"Bitcoin Fear and greed : {res_fear_and_greed}")
+    logging.info(f"ADI : {res_adi}")
+    logging.info(f"Bollinger : {res_bollinger}")
     logging.info(f"EMA : {res_ema}")
+    logging.info(f"Bitcoin Fear and greed : {res_fear_and_greed}")
     logging.info(f"MACD : {res_macd}")
     logging.info(f"État RSI : {res_rsi}")
     logging.info(f"État Stoch RSI : {res_stoch_rsi}")
-    logging.info(f"Bollinger : {res_bollinger}")
+    logging.info(f"Volume : {res_volume}")
+
 
     analysis = {
         "actual_price": actual_price,
@@ -164,6 +169,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
         "position": position,
         "fiat_amount": fiat_amount,
         "crypto_amount": crypto_amount,
+        "adi": res_adi,
         "ema": res_ema,
         "rsi": res_rsi,
         "stoch_rsi": res_stoch_rsi,
