@@ -128,7 +128,7 @@ def place_order(order_type, pair, volume, price=None):
         return None
 
 # Fonction principale de trading
-def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_truncate, protection, analysis, trade_in_progress):
+def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell_ready, my_truncate, protection, analysis, trade_in_progress):
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Journalisation des indicateurs
@@ -169,6 +169,7 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
             logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
@@ -209,6 +210,7 @@ def trade_action(bench_mode, pair_symbol, values, buy_ready, sell_ready, my_trun
             if sell_order:
                 logging.info(f"Ordre : {sell_order}")
                 asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
                 asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
                 asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
 

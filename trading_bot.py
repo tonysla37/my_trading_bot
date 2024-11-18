@@ -161,7 +161,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
 
     return analysis
 
-def run_trading(client, data, analysis, trade_in_progress):
+def run_trading(client, time_interval, data, analysis, trade_in_progress):
     if backtest:
         # Exécuter le backtest
         # logging.info(f"#############################################################")
@@ -174,6 +174,7 @@ def run_trading(client, data, analysis, trade_in_progress):
         logging.info("Exécution des actions de trading en live")
         trade_in_progress = trade.trade_action(
             bench_mode=bench_mode,
+            time_interval = time_interval,
             pair_symbol=pair_symbol,
             values=data,
             buy_ready=buy_ready,
@@ -185,39 +186,41 @@ def run_trading(client, data, analysis, trade_in_progress):
         )
         return trade_in_progress
 
-def main():
+def trading(key, secret, time_interval):
     global monthly_trade_in_progress
     global weekly_trade_in_progress
     global daily_trade_in_progress
+
+    match time_interval:
+        case "monthly":
+            interval = Client.KLINE_INTERVAL_1MONTH
+            trade_in_progress = monthly_trade_in_progress
+        case "weekly":
+            interval = Client.KLINE_INTERVAL_1WEEK
+            trade_in_progress = weekly_trade_in_progress
+        case "daily":
+            interval = Client.KLINE_INTERVAL_1DAY
+            trade_in_progress = daily_trade_in_progress
+
+    # Log or print the time to track execution
+    logging.info(f"#############################################################")
+    logging.info("Execution " + time_interval + " at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    ti_client, ti_data, ti_fiat_amount, ti_crypto_amount = gather_datas(key=key, secret=secret, interval=interval, start="1 Jan, 2020")
+    ti_analysis = run_analysis(data=ti_data, fiat_amount=ti_fiat_amount, crypto_amount=ti_crypto_amount)
+    if not trade_in_progress:
+        trade_in_progress = run_trading(client=ti_client, time_interval = time_interval, data=ti_data, analysis=ti_analysis, trade_in_progress=trade_in_progress)
+    else:
+        logging.info(f"Trade " + time_interval + " deja en cours")
+    
+    pass
+
+def main():
+
     while True:
         try:
-            # Log or print the time to track execution
-            logging.info(f"#############################################################")
-            logging.info("Execution monthly at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            monthly_client, monthly_data, monthly_fiat_amount, monthly_crypto_amount = gather_datas(key=API_KEY, secret=API_SECRET, interval=Client.KLINE_INTERVAL_1MONTH, start="1 Jan, 2020")
-            monthly_analysis = run_analysis(data=monthly_data, fiat_amount=monthly_fiat_amount, crypto_amount=monthly_crypto_amount)
-            if not monthly_trade_in_progress:
-                monthly_trade_in_progress = run_trading(client=monthly_client, data=monthly_data, analysis=monthly_analysis, trade_in_progress=monthly_trade_in_progress)
-            else:
-                logging.info(f"Trade monthly deja en cours")
-
-            logging.info(f"#############################################################")
-            logging.info("Execution weekly at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            weekly_client, weekly_data, weekly_fiat_amount, weekly_crypto_amount = gather_datas(key=API_KEY, secret=API_SECRET, interval=Client.KLINE_INTERVAL_1WEEK, start="1 Jan, 2020")
-            weekly_analysis = run_analysis(data=weekly_data, fiat_amount=weekly_fiat_amount, crypto_amount=weekly_crypto_amount)
-            if not weekly_trade_in_progress:            
-                weekly_trade_in_progress = run_trading(client=weekly_client, data=weekly_data, analysis=weekly_analysis, trade_in_progress=weekly_trade_in_progress)
-            else:
-                logging.info(f"Trade weekly deja en cours")
-
-            logging.info(f"#############################################################")
-            logging.info("Execution daily at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            daily_client, daily_data, daily_fiat_amount, daily_crypto_amount = gather_datas(key=API_KEY, secret=API_SECRET, interval=Client.KLINE_INTERVAL_1DAY, start="1 Jan, 2020")
-            daily_analysis = run_analysis(data=daily_data, fiat_amount=daily_fiat_amount, crypto_amount=daily_crypto_amount)
-            if not daily_trade_in_progress:
-                daily_trade_in_progress = run_trading(client=daily_client, data=daily_data, analysis=daily_analysis, trade_in_progress=daily_trade_in_progress)
-            else:
-                logging.info(f"Trade daily deja en cours")
+            monthly_result = trading(key=API_KEY, secret=API_SECRET, time_interval="monthly")
+            weekly_result = trading(key=API_KEY, secret=API_SECRET, time_interval="weekly")
+            daily_result = trading(key=API_KEY, secret=API_SECRET, time_interval="daily")
 
         except Exception as e:
             logging.error(f"An error occurred: {e}")
