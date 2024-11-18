@@ -194,6 +194,7 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             crypto_after_trade = float(analysis['crypto_amount']) + float(quantity)  # Ajoute la quantité achetée
             analysis['fiat_amount'] = fiat_after_trade
             analysis['crypto_amount'] = crypto_after_trade
+            total_portfolio_value = fiat_after_trade + (crypto_after_trade * price)
 
             logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
@@ -209,8 +210,9 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             fields = {
                 "fiat_amount": float(analysis['fiat_amount']),
                 "crypto_amount": float(analysis['crypto_amount']),
-                "fiat_after_trade": float(fiat_after_trade),
-                "crypto_amount": float(crypto_after_trade),
+                "new_fiat_amount": float(fiat_after_trade),
+                "new_crypto_amount": float(crypto_after_trade),
+                "total_portfolio_value": float(total_portfolio_value),
                 "price": float(price),
                 "pair_symbol": pair_symbol,
                 "quantity": float(quantity),
@@ -220,11 +222,11 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
                 "tp1_quantity": float(tp1_quantity),
                 "possible_gain": float(possible_gain),
                 "possible_loss": float(possible_loss),
-                "R": float(R)
+                "R": float(R),
+                "trade_in_progress": True
             }
             idb.write_trade_to_influx(fields=fields, trade_type="buy", timestamp=int(datetime.now().timestamp() * 1e9))
 
-            trade_in_progress = True
 
     # Condition de vente
     elif sell_condition(analysis, time_interval) and trade_in_progress:
@@ -242,6 +244,7 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             crypto_after_trade = float(analysis['crypto_amount']) - float(quantity)  # Réduit la quantité de crypto vendue
             analysis['fiat_amount'] = fiat_after_trade
             analysis['crypto_amount'] = crypto_after_trade
+            total_portfolio_value = fiat_after_trade + (crypto_after_trade * price)
 
             logging.info(f"Vente de {quantity}")
             logging.info(f"Ordre : {sell_order}")
@@ -257,16 +260,31 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             fields = {
                 "fiat_amount": float(analysis['fiat_amount']),
                 "crypto_amount": float(analysis['crypto_amount']),
-                "fiat_after_trade": float(fiat_after_trade),
-                "crypto_amount": float(crypto_after_trade),
+                "new_fiat_amount": float(fiat_after_trade),
+                "new_crypto_amount": float(crypto_after_trade),
+                "total_portfolio_value": float(total_portfolio_value),
                 "price": float(price),
                 "pair_symbol": pair_symbol,
                 "quantity": float(quantity),
+                "trade_in_progress": False
             }
             idb.write_trade_to_influx(fields=fields, trade_type="sell", timestamp=int(datetime.now().timestamp() * 1e9))
 
-            trade_in_progress = False
     else:
+        total_portfolio_value = analysis['fiat_amount'] + (analysis['crypto_amount'] * price)
         logging.info("Aucune opportunité de trade")
 
-    return trade_in_progress
+        # Écrire dans InfluxDB
+        fields = {
+            "fiat_amount": float(analysis['fiat_amount']),
+            "crypto_amount": float(analysis['crypto_amount']),
+            "new_fiat_amount": float(analysis['fiat_amount']),
+            "new_crypto_amount": float(analysis['crypto_amount']),
+            "total_portfolio_value": float(total_portfolio_value),
+            "price": float(price),
+            "pair_symbol": pair_symbol,
+            "quantity": float(quantity),
+            "trade_in_progress": False
+        }
+
+    return fields

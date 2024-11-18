@@ -71,13 +71,13 @@ intraday_trade_in_progress = False
 API_KEY = os.getenv('BINANCE_API_KEY')
 API_SECRET = os.getenv('BINANCE_API_SECRET')
 
-def gather_datas(key, secret, interval, start):
+def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, start):
     # Your existing trading logic goes here
     # Initialisation des clients API
     if bench_mode:
         client = Client()  # Client sans clés API pour le backtest
-        fiat_amount = 10000.0
-        crypto_amount = 1
+        fiat_amount = cur_fiat_amount
+        crypto_amount = cur_crypto_amount
     else:
         client = Client(key, secret)
         fiat_amount = trade.get_balance(client, fiat_symbol)
@@ -186,13 +186,13 @@ def run_trading(client, time_interval, data, analysis, trade_in_progress):
         # Exécuter le backtest
         # logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        bt.backtest_strategy(analysis.fiat_amount, analysis.crypto_amount, data)
+        result = bt.backtest_strategy(analysis.fiat_amount, analysis.crypto_amount, data)
         pass
     else:
         # Exécuter les actions de trading
         # logging.info(f"#############################################################")
         logging.info("Exécution des actions de trading en live")
-        trade_in_progress = trade.trade_action(
+        result = trade.trade_action(
             bench_mode=bench_mode,
             time_interval = time_interval,
             pair_symbol=pair_symbol,
@@ -204,9 +204,9 @@ def run_trading(client, time_interval, data, analysis, trade_in_progress):
             analysis=analysis,
             trade_in_progress=trade_in_progress
         )
-        return trade_in_progress
+        return result
 
-def trading(key, secret, time_interval):
+def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
     global monthly_trade_in_progress
     global weekly_trade_in_progress
     global daily_trade_in_progress
@@ -229,10 +229,23 @@ def trading(key, secret, time_interval):
     # Log or print the time to track execution
     logging.info(f"#############################################################")
     logging.info("Execution " + time_interval + " at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    ti_client, ti_data, ti_fiat_amount, ti_crypto_amount = gather_datas(key=key, secret=secret, interval=interval, start="1 Jan, 2020")
+    ti_client, ti_data, ti_fiat_amount, ti_crypto_amount = gather_datas(key=key, secret=secret, cur_fiat_amount=cur_fiat_amount, cur_crypto_amount=cur_crypto_amount, interval=interval, start="1 Jan, 2020") ### /!\ soldes ecrasées car bench mode
     ti_analysis = run_analysis(data=ti_data, fiat_amount=ti_fiat_amount, crypto_amount=ti_crypto_amount)
     if not trade_in_progress:
-        trade_in_progress = run_trading(client=ti_client, time_interval = time_interval, data=ti_data, analysis=ti_analysis, trade_in_progress=trade_in_progress)
+        result = run_trading(client=ti_client, time_interval = time_interval, data=ti_data, analysis=ti_analysis, trade_in_progress=trade_in_progress)
+
+        match time_interval:
+            case "monthly":
+                monthly_trade_in_progress = result["trade_in_progress"]
+            case "weekly":
+                weekly_trade_in_progress = result["trade_in_progress"]
+            case "daily":
+                daily_trade_in_progress = result["trade_in_progress"]
+            case "intraday":
+                intraday_trade_in_progress = result["trade_in_progress"]
+        
+        return result
+
     else:
         logging.info(f"Trade " + time_interval + " deja en cours")
     
@@ -240,12 +253,29 @@ def trading(key, secret, time_interval):
 
 def main():
 
+    monthly_fiat_amount = 10000
+    monthly_crypto_amount = 1
+    weekly_fiat_amount = 10000
+    weekly_crypto_amount = 1
+    daily_fiat_amount = 10000
+    daily_crypto_amount = 1
+    intraday_fiat_amount = 10000
+    intraday_crypto_amount = 1
+
     while True:
         try:
-            monthly_result = trading(key=API_KEY, secret=API_SECRET, time_interval="monthly")
-            weekly_result = trading(key=API_KEY, secret=API_SECRET, time_interval="weekly")
-            daily_result = trading(key=API_KEY, secret=API_SECRET, time_interval="daily")
-            intraday_result = trading(key=API_KEY, secret=API_SECRET, time_interval="intraday")
+            monthly_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=monthly_fiat_amount, cur_crypto_amount=monthly_crypto_amount, time_interval="monthly")
+            weekly_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=weekly_fiat_amount, cur_crypto_amount=weekly_crypto_amount, time_interval="weekly")
+            daily_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=daily_fiat_amount, cur_crypto_amount=daily_crypto_amount, time_interval="daily")
+            intraday_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=intraday_fiat_amount, cur_crypto_amount=intraday_crypto_amount, time_interval="intraday")
+            monthly_fiat_amount = monthly_result["new_fiat_amount"]
+            monthly_crypto_amount = monthly_result["new_crypto_amount"]
+            weekly_fiat_amount = weekly_result["new_fiat_amount"]
+            weekly_crypto_amount = weekly_result["new_crypto_amount"]
+            daily_fiat_amount = daily_result["new_fiat_amount"]
+            daily_crypto_amount = daily_result["new_crypto_amount"]
+            intraday_fiat_amount = intraday_result["new_fiat_amount"]
+            intraday_crypto_amount = intraday_result["new_crypto_amount"]
         except Exception as e:
             logging.error(f"An error occurred: {e}")
 
