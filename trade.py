@@ -189,18 +189,28 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             buy_ready = False
             sell_ready = True
 
+            # Mise à jour des balances
+            fiat_after_trade = float(analysis['fiat_amount']) - (float(quantity) * price)  # Moins le montant dépensé en fiat
+            crypto_after_trade = float(analysis['crypto_amount']) + float(quantity)  # Ajoute la quantité achetée
+            analysis['fiat_amount'] = fiat_after_trade
+            analysis['crypto_amount'] = crypto_after_trade
+
             logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
+            logging.info(f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}")
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
 
             # Écrire dans InfluxDB après l'achat
             fields = {
                 "fiat_amount": float(analysis['fiat_amount']),
                 "crypto_amount": float(analysis['crypto_amount']),
+                "fiat_after_trade": float(fiat_after_trade),
+                "crypto_amount": float(crypto_after_trade),
                 "price": float(price),
                 "pair_symbol": pair_symbol,
                 "quantity": float(quantity),
@@ -227,20 +237,28 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             buy_ready = True
             sell_ready = False
 
-            logging.info(f"Vente de {quantity}")
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity}"))
+            # Mise à jour des balances
+            fiat_after_trade = float(analysis['fiat_amount']) + (float(quantity) * price)  # Ajoute le montant reçu en fiat
+            crypto_after_trade = float(analysis['crypto_amount']) - float(quantity)  # Réduit la quantité de crypto vendue
+            analysis['fiat_amount'] = fiat_after_trade
+            analysis['crypto_amount'] = crypto_after_trade
 
-            if sell_order:
-                logging.info(f"Ordre : {sell_order}")
-                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
-                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
-                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
-                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+            logging.info(f"Vente de {quantity}")
+            logging.info(f"Ordre : {sell_order}")
+            logging.info(f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}")
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}"))
+            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
 
             # Écrire dans InfluxDB après la vente
             fields = {
                 "fiat_amount": float(analysis['fiat_amount']),
                 "crypto_amount": float(analysis['crypto_amount']),
+                "fiat_after_trade": float(fiat_after_trade),
+                "crypto_amount": float(crypto_after_trade),
                 "price": float(price),
                 "pair_symbol": pair_symbol,
                 "quantity": float(quantity),
