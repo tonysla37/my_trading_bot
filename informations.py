@@ -2,10 +2,22 @@ import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 import ta
+import requests
 
 from binance.client import Client
 from math import floor
+from bs4 import BeautifulSoup
+
 import indicators as indic
+
+def get_bitcoin_fear_and_greed_index():
+    url = "https://alternative.me/crypto/fear-and-greed-index/"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "html.parser")
+
+    # Trouver la section qui contient l'indice
+    index_value = soup.find("div", class_="fng-circle").text.strip()
+    return index_value
 
 def prepare_data(df):
     """

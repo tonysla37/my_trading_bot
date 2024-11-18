@@ -96,6 +96,11 @@ def gather_datas(key, secret, interval, start):
 def run_analysis(data, fiat_amount, crypto_amount):
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
+
+        # Récupération de l'indice
+        bitcoin_fear_and_greed_index = info.get_bitcoin_fear_and_greed_index()
+        # print(f"Bitcoin Fear and Greed Index: {bitcoin_fear_and_greed_index}")
+
         res_ema = indic.analyse_ema([
             data['ema7'].iloc[-1],
             data['ema30'].iloc[-1],
@@ -117,6 +122,10 @@ def run_analysis(data, fiat_amount, crypto_amount):
             average=data['bol_medium'].iloc[-1],
             close=data['close'].iloc[-1]
         )
+        res_fear_and_greed = indic.analyse_fear_and_greed(
+            int(bitcoin_fear_and_greed_index)
+        )
+        # print(f"Bitcoin Fear and Greed Index: {res_fear_and_greed}")
         res_macd = indic.analyse_macd(
             macd=data['macd'].iloc[-1],
             signal=data['macd_signal'].iloc[-1],
@@ -140,12 +149,13 @@ def run_analysis(data, fiat_amount, crypto_amount):
     # Afficher les informations pertinentes
     # logging.info(f"#############################################################")
     logging.info(f"Prix actuel : {actual_price}, Solde USD : {fiat_amount}, Solde BTC : {crypto_amount}, Position de trading : {position}")
+    logging.info(f"Volume : {res_volume}")
+    logging.info(f"Bitcoin Fear and greed : {res_fear_and_greed}")
     logging.info(f"EMA : {res_ema}")
+    logging.info(f"MACD : {res_macd}")
     logging.info(f"État RSI : {res_rsi}")
     logging.info(f"État Stoch RSI : {res_stoch_rsi}")
-    logging.info(f"MACD : {res_macd}")
     logging.info(f"Bollinger : {res_bollinger}")
-    logging.info(f"Volume : {res_volume}")
 
     analysis = {
         "actual_price": actual_price,
@@ -160,6 +170,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
         "macd": res_macd,
         "bollinger": res_bollinger,
         "volume": res_volume,
+        "fear_and_greed": res_fear_and_greed
     }
 
     return analysis

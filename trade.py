@@ -90,6 +90,7 @@ def buy_condition(analysis):
         and analysis['macd']['trend'] == "bullish"
         # and analysis['bollinger']['trend'] == "oversell"
         # and analysis['volume']['trend'] == "bullish"
+        and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
     )
 
 def sell_condition(analysis):
@@ -100,6 +101,7 @@ def sell_condition(analysis):
         and analysis['macd']['trend'] == "bearish"
         # and analysis['bollinger']['trend'] == "overbuy"
         # and analysis['volume']['trend'] == "bearish"
+        and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
     )
 
 # Fonctions pour placer les ordres

@@ -9,16 +9,27 @@ from datetime import datetime, timedelta
 ###################### Analyse des indicateurs techniques ######################
 def analyse_adi(adi, prev_adi):
     adi_trend = "neutral"
-    if adi > prev_adi:
+    
+    # Définir des seuils pour les tendances fortes et faibles
+    trend_strength = "weak"
+    threshold = 0.1  # Ce seuil peut être ajusté selon vos besoins
+    difference = adi - prev_adi
+
+    if difference > 0:
         adi_trend = "bullish"
-    elif adi < prev_adi:
+    elif difference < 0:
         adi_trend = "bearish"
+    
+    # Vérification de la force de la tendance
+    if abs(difference) >= threshold:
+        trend_strength = "strong"
     
     fields = {
         "adi": adi,
         "prev_adi": prev_adi,
+        "strength": trend_strength,
         "trend": adi_trend
-    }   
+    }  
     idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
@@ -28,6 +39,7 @@ def analyse_bollinger(high, low, average, close):
     volatility_pc = (spread_band / close) * 100
     volatility = "high" if volatility_pc > 20 else "low"
 
+    # Analyse des conditions par rapport aux bandes
     if close > high:
         bol_trend = "overbuy"
     elif close < low:
@@ -35,13 +47,29 @@ def analyse_bollinger(high, low, average, close):
     else:
         bol_trend = "over_sma" if close > average else "under_sma"
 
+    # Evaluation des signaux de retournement
+    signal_strength = ""
+    if bol_trend in ["overbuy", "oversell"]:
+        signal_strength = "potential reversal"
+    elif bol_trend in ["over_sma", "under_sma"]:
+        signal_strength = "continuation possible"
+
+    # Détection d'une condition extrême
+    extreme_condition = "none"
+    if close > (high + 2 * (high - low)):  # Par exemple, trop au-dessus de la bande supérieure
+        extreme_condition = "extreme overbuy"
+    elif close < (low - 2 * (high - low)):  # Trop en-dessous de la bande inférieure
+        extreme_condition = "extreme oversell"
+
     fields = {
         "spread_band": spread_band,
         "spread_price": spread_price,
         "volatility": volatility,
         "volatility_pc": volatility_pc,
+        "signal_strength": signal_strength,
+        "extreme_condition": extreme_condition,
         "trend": bol_trend
-    }   
+    }
     idb.write_indicator_to_influx(fields=fields, indicator="bollinger", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
@@ -60,8 +88,47 @@ def analyse_ema(emas):
         "ema150": emas[4],
         "ema200": emas[5],
         "trend": ema_trend
-    }   
+    }
     idb.write_indicator_to_influx(fields=fields, indicator="ema", timestamp=int(datetime.now().timestamp() * 1e9))
+    return fields
+
+def analyse_fear_and_greed(index_value):
+    """Analyse l'indice de peur et de cupidité et retourne un signal de trading."""
+    
+    if index_value < 20:
+        sentiment = "extreme fear"
+        trend = "bullish"
+        strength = "strong"
+        recommendation = "consider strong buying opportunities"
+    elif index_value < 40:
+        sentiment = "fear"
+        trend = "bullish"
+        strength = "weak"
+        recommendation = "exercise caution; consider buying opportunities"
+    elif index_value < 60:
+        sentiment = "neutral"
+        trend = "neutral"
+        strength = "n/a"  # Pas de tendance claire
+        recommendation = "hold; wait for stronger signals"
+    elif index_value < 80:
+        sentiment = "greed"
+        trend = "bearish"
+        strength = "weak"
+        recommendation = "exercise caution; consider selling"
+    else:
+        sentiment = "extreme greed"
+        trend = "bearish"
+        strength = "strong"
+        recommendation = "consider taking profits; sell positions"
+
+    fields = {
+        "index_value": index_value,
+        "sentiment": sentiment,
+        "strength": strength,
+        "recommendation": recommendation,
+        "trend": trend,
+    }
+    idb.write_indicator_to_influx(fields=fields, indicator="fear_and_greed", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
@@ -103,9 +170,9 @@ def analyse_rsi(rsi, prev_rsi):
 
     # Analyse des zones de surachat et de survente
     if rsi <= 30:
-        rsi_trend = "oversold"
+        rsi_trend = "oversell"
     elif rsi >= 70:
-        rsi_trend = "overbought"
+        rsi_trend = "overbuy"
     else:
         # Zone neutre
         if rsi > 50:
@@ -140,48 +207,88 @@ def analyse_rsi(rsi, prev_rsi):
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     srsi_trend = "undefined"
+    srsi_strength = "weak"
+
+    # Conditions de surachat et de survente
     if blue <= 20 or orange <= 20:
         srsi_trend = "oversell"
     elif blue >= 80 or orange >= 80:
         srsi_trend = "overbuy"
     else:
-        if blue > orange and blue > prev_blue and orange > prev_orange:
+        # Analyse de la tendance principale
+        if blue > orange:
             srsi_trend = "bullish"
-        elif blue < orange and blue < prev_blue and orange < prev_orange:
+            if blue > prev_blue and orange > prev_orange:
+                srsi_strength = "strong"
+        elif blue < orange:
             srsi_trend = "bearish"
+            if blue < prev_blue and orange < prev_orange:
+                srsi_strength = "strong"
         else:
             srsi_trend = "neutral"
-        
+
+    # Analyse de la divergence
+    divergence = "none"
+    if (blue > prev_blue and orange < prev_orange) or (blue < prev_blue and orange > prev_orange):
+        divergence = "potential divergence"
+
     fields = {
         "blue": blue,
         "orange": orange,
         "prev_blue": prev_blue,
         "prev_orange": prev_orange,
+        "strength": srsi_strength,
+        "divergence": divergence,
         "trend": srsi_trend
-    }   
+    } 
     idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
-def analyse_volume(data, volume_column='volume', window=14):
-    """Analyse le volume pour déterminer si la tendance est bullish ou bearish."""
-    data['volume_ma'] = data[volume_column].rolling(window=window).mean()
-
+def analyse_volume(data, volume_column='volume', short_window=5, long_window=14):
+    """Analyse le volume pour déterminer si la tendance est bullish ou bearish et détecter des activités de baleines."""
+    data['volume_short_ma'] = data[volume_column].rolling(window=short_window).mean()
+    data['volume_long_ma'] = data[volume_column].rolling(window=long_window).mean()
+    
     current_volume = data[volume_column].iloc[-1]  # Valeur actuelle de volume
-    current_volume_ma = data['volume_ma'].iloc[-1]  # Moyenne mobile du volume
+    current_long_ma = data['volume_long_ma'].iloc[-1]   # Moyenne mobile longue
 
     vol_trend = 'neutral'  # Valeur par défaut
+    volume_change_strength = ''
 
     # Conditions de tendance
-    if current_volume > current_volume_ma:
+    if current_volume > current_long_ma:
         vol_trend = 'bullish'
-    elif current_volume < current_volume_ma:
+    elif current_volume < current_long_ma:
         vol_trend = 'bearish'
-    
+
+    # Évaluation de la variation de volume par rapport à la période précédente
+    previous_volume = data[volume_column].iloc[-2]
+    volume_trend_change = current_volume - previous_volume
+
+    # Détection d'un volume élevé suggérant l'action d'une baleine
+    volume_alert = 'normal'
+    whale_activity = False
+    if current_volume > 2 * current_long_ma:
+        volume_alert = 'high volume'
+        whale_activity = True  # Volume significatif identifié
+
+    # Analyse directionnelle : pression d'achat ou de vente
+    if volume_trend_change > 0 and vol_trend == 'bullish':
+        price_direction = "strong buying pressure"
+    elif volume_trend_change < 0 and vol_trend == 'bearish':
+        price_direction = "strong selling pressure"
+    else:
+        price_direction = ""
+
     fields = {
         "current_volume": current_volume,
-        "current_volume_ma": current_volume_ma,
+        "current_long_ma": current_long_ma,
+        "volume_trend_change": volume_trend_change,
+        "volume_alert": volume_alert,
+        "whale_activity": whale_activity,
+        "price_direction": price_direction,
         "trend": vol_trend
-    }   
+    }
     idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 

@@ -19,3 +19,4 @@ termcolor
 scipy
 pyyaml
 influxdb-client
+bs4
