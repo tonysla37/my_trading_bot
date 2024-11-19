@@ -110,9 +110,11 @@ def analyze_market_trend(indicators):
         score -= 1
 
     # Bollinger Bands
-    if indicators['bollinger']['trend'] == 'oversell' or indicators['bollinger']['trend'] == 'over_sma':
+    # if indicators['bollinger']['trend'] == 'oversell' or indicators['bollinger']['trend'] == 'over_sma':
+    if indicators['bollinger']['trend'] == 'oversell':
         score += 1
-    elif indicators['bollinger']['trend'] == 'overbuy' or indicators['bollinger']['trend'] == 'under_sma':
+    # elif indicators['bollinger']['trend'] == 'overbuy' or indicators['bollinger']['trend'] == 'under_sma':
+    elif indicators['bollinger']['trend'] == 'overbuy':
         score -= 1
 
     # EMA

@@ -58,7 +58,7 @@ dca = trading_config['dca']
 today = datetime.now()
 today_format = today.strftime('%Y-%m-%d')
 
-perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
+# perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
 risk = info.define_risk(risk_level)
 
 # Initialiser la variable pour suivre l'état du trade
@@ -312,8 +312,8 @@ def main():
             daily_crypto_amount = daily_result["new_crypto_amount"]
             intraday_fiat_amount = intraday_result["new_fiat_amount"]
             intraday_crypto_amount = intraday_result["new_crypto_amount"]
-            scaplping_fiat_amount = scalping_result["new_fiat_amount"]
-            scaplping_crypto_amount = scalping_result["new_crypto_amount"]
+            scalping_fiat_amount = scalping_result["new_fiat_amount"]
+            scalping_crypto_amount = scalping_result["new_crypto_amount"]
         except Exception as e:
             logging.error(f"An error occurred: {e}")
 

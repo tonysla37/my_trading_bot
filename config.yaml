@@ -12,7 +12,7 @@ trading:
   sell_ready: true
   bench_mode: true
   backtest: false
-  risk_level: "Max"
+  risk_level: "Mid"
   capital: 100
   cible: 200000
   temps: 5
