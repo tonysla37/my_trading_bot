@@ -90,7 +90,7 @@ def buy_condition(analysis, market_trend, score, time_interval):
 
 def sell_condition(analysis, market_trend, score, time_interval):
     return (
-        score <=0
+        score < 0
         and market_trend == "bearish"
     )
 
@@ -98,9 +98,9 @@ def analyze_market_trend(indicators):
     score = 0
 
     # FEAR AND GREED
-    if indicators['fear_and_greed']['trend'] == 'bullish':
+    if indicators['fear_and_greed']['trend'] == 'bullish' and indicators['fear_and_greed']['index_value'] < 60 :
         score += 1
-    elif indicators['fear_and_greed']['trend'] == 'bearish':
+    elif indicators['fear_and_greed']['trend'] == 'bearish' and indicators['fear_and_greed']['index_value'] >= 60:
         score -= 1
 
     # ADI
@@ -110,9 +110,9 @@ def analyze_market_trend(indicators):
         score -= 1
 
     # Bollinger Bands
-    if indicators['bollinger']['trend'] == 'over_sma':
+    if indicators['bollinger']['trend'] == 'oversell' or indicators['bollinger']['trend'] == 'over_sma':
         score += 1
-    elif indicators['bollinger']['trend'] == 'under_sma':
+    elif indicators['bollinger']['trend'] == 'overbuy' or indicators['bollinger']['trend'] == 'under_sma':
         score -= 1
 
     # EMA
