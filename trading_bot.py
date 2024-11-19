@@ -203,7 +203,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
 
     return analysis
 
-def run_trading(client, time_interval, data, analysis, trade_in_progress):
+def run_trading(client, time_interval, data, analysis, market_trend, score, trade_in_progress):
     if backtest:
         # Exécuter le backtest
         # logging.info(f"#############################################################")
@@ -224,6 +224,8 @@ def run_trading(client, time_interval, data, analysis, trade_in_progress):
             my_truncate=my_truncate,
             protection=protection,
             analysis=analysis,
+            market_trend=market_trend,
+            score=score,
             trade_in_progress=trade_in_progress
         )
         return result
@@ -257,8 +259,11 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
     logging.info("Execution " + time_interval + " at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     ti_client, ti_data, ti_fiat_amount, ti_crypto_amount = gather_datas(key=key, secret=secret, cur_fiat_amount=cur_fiat_amount, cur_crypto_amount=cur_crypto_amount, interval=interval, start="1 Jan, 2020") ### /!\ soldes ecrasées car bench mode
     ti_analysis = run_analysis(data=ti_data, fiat_amount=ti_fiat_amount, crypto_amount=ti_crypto_amount)
+    ti_market_trend, ti_score = trade.analyze_market_trend(indicators=ti_analysis)
+    logging.info(f"Tendance globale : {ti_market_trend}")
+    logging.info(f"Score : {ti_score}")
     if not trade_in_progress:
-        result = run_trading(client=ti_client, time_interval = time_interval, data=ti_data, analysis=ti_analysis, trade_in_progress=trade_in_progress)
+        result = run_trading(client=ti_client, time_interval = time_interval, data=ti_data, analysis=ti_analysis, market_trend=ti_market_trend, score=ti_score, trade_in_progress=trade_in_progress)
 
         match time_interval:
             case "monthly":

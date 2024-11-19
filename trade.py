@@ -82,93 +82,84 @@ def get_kraken_data(api, symbol, interval, since):
         logging.error(f"Erreur lors de la récupération des données Kraken : {e}")
         return pd.DataFrame()
 
-def buy_condition(analysis, time_interval):
-    if time_interval in ['monthly']:
-        return (
-            analysis['ema']['trend'] == "bullish"
-            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
-            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
-            and analysis['macd']['trend'] == "bullish"
-            # and analysis['bollinger']['trend'] == "oversell"
-            # and analysis['volume']['trend'] == "bullish"
-            and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
-    elif time_interval in ['weekly']:
-        return (
-            analysis['ema']['trend'] == "bullish"
-            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
-            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
-            and analysis['macd']['trend'] == "bullish"
-            # and analysis['bollinger']['trend'] == "oversell"
-            # and analysis['volume']['trend'] == "bullish"
-            and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
-    elif time_interval in ['daily']:
-        return (
-            analysis['ema']['trend'] == "bullish"
-            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
-            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
-            and analysis['macd']['trend'] == "bullish"
-            # and analysis['bollinger']['trend'] == "oversell"
-            # and analysis['volume']['trend'] == "bullish"
-            and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
-    else :
-        return (
-            analysis['ema']['trend'] == "bullish"
-            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
-            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
-            and analysis['macd']['trend'] == "bullish"
-            # and analysis['bollinger']['trend'] == "oversell"
-            # and analysis['volume']['trend'] == "bullish"
-            and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
+def buy_condition(analysis, market_trend, score, time_interval):
+    return (
+        score > 0
+        and market_trend == "bullish"
+    )
 
-def sell_condition(analysis, time_interval):
+def sell_condition(analysis, market_trend, score, time_interval):
+    return (
+        score <=0
+        and market_trend == "bearish"
+    )
 
-    if time_interval in ['monthly']:
-        return (
-            analysis['ema']['trend'] == "bearish"
-            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
-            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
-            and analysis['macd']['trend'] == "bearish"
-            # and analysis['bollinger']['trend'] == "overbuy"
-            # and analysis['volume']['trend'] == "bearish"
-            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
-    if time_interval in ['weekly']:
-        return (
-            analysis['ema']['trend'] == "bearish"
-            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
-            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
-            and analysis['macd']['trend'] == "bearish"
-            # and analysis['bollinger']['trend'] == "overbuy"
-            # and analysis['volume']['trend'] == "bearish"
-            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
-    if time_interval in ['daily']:
-        return (
-            analysis['ema']['trend'] == "bearish"
-            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
-            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
-            and analysis['macd']['trend'] == "bearish"
-            # and analysis['bollinger']['trend'] == "overbuy"
-            # and analysis['volume']['trend'] == "bearish"
-            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
-    else :
-        return (
-            analysis['ema']['trend'] == "bearish"
-            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
-            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
-            and analysis['macd']['trend'] == "bearish"
-            # and analysis['bollinger']['trend'] == "overbuy"
-            # and analysis['volume']['trend'] == "bearish"
-            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
-        )
+def analyze_market_trend(indicators):
+    score = 0
 
+    # FEAR AND GREED
+    if indicators['fear_and_greed']['trend'] == 'bullish':
+        score += 1
+    elif indicators['fear_and_greed']['trend'] == 'bearish':
+        score -= 1
 
-####### DEFINITION PARADYGME
+    # ADI
+    if indicators['adi']['trend'] == 'bullish':
+        score += 1
+    elif indicators['adi']['trend'] == 'bearish':
+        score -= 1
+
+    # Bollinger Bands
+    if indicators['bollinger']['trend'] == 'over_sma':
+        score += 1
+    elif indicators['bollinger']['trend'] == 'under_sma':
+        score -= 1
+
+    # EMA
+    if indicators['ema']['trend'] == 'bullish':
+        score += 1
+    elif indicators['ema']['trend'] == 'bearish':
+        score -= 1
+
+    # MACD
+    if indicators['macd']['trend'] == 'bullish':
+        score += 1
+    elif indicators['macd']['trend'] == 'bearish':
+        score -= 1
+
+    # RSI
+    if indicators['rsi']['trend'] == 'overbuy':
+        score -= 1
+    elif indicators['rsi']['trend'] == 'oversell':
+        score += 1
+        
+    # SMA
+    if indicators['sma']['trend'] == 'bullish':
+        score += 1
+    elif indicators['sma']['trend'] == 'bearish':
+        score -= 1
+
+    # Stoch RSI
+    if indicators['stoch_rsi']['trend'] == 'overbuy':
+        score -= 1
+    elif indicators['stoch_rsi']['trend'] == 'oversell':
+        score += 1
+
+    # Volume
+    if indicators['volume']['trend'] == 'bullish':
+        score += 1
+    elif indicators['volume']['trend'] == 'bearish':
+        score -= 1
+
+    # Évaluation de la tendance globale
+    if score > 0:
+        trend = "bullish"
+    elif score < 0:
+        trend = "bearish"
+    else:
+        trend = "neutral"
+    
+    return trend, score
 
 # Fonctions pour placer les ordres
 def place_order(order_type, pair, volume, price=None):
@@ -196,7 +187,7 @@ def place_order(order_type, pair, volume, price=None):
         return None
 
 # Fonction principale de trading
-def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell_ready, my_truncate, protection, analysis, trade_in_progress):
+def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell_ready, my_truncate, protection, analysis, market_trend, score, trade_in_progress):
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Journalisation des indicateurs
@@ -206,7 +197,7 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
     quantity = info.truncate(analysis['trade_amount'], my_truncate)
 
     # Condition d'achat
-    if buy_condition(analysis, time_interval) and not trade_in_progress:
+    if buy_condition(analysis, market_trend, score, time_interval) and not trade_in_progress:
         if float(analysis['fiat_amount']) > 5 and buy_ready:
 
             sl_level = protection["sl_level"]
@@ -274,7 +265,7 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
 
 
     # Condition de vente
-    elif sell_condition(analysis, time_interval) and trade_in_progress:
+    elif sell_condition(analysis, market_trend, score, time_interval) and trade_in_progress:
         if float(analysis['crypto_amount']) > analysis['min_token'] and sell_ready:
             if bench_mode:
                 sell_order = f"Sell Order placé pour la quantité : {quantity}"
