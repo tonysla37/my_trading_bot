@@ -83,7 +83,27 @@ def get_kraken_data(api, symbol, interval, since):
         return pd.DataFrame()
 
 def buy_condition(analysis, time_interval):
-    if time_interval in ['monthly', 'weekly']:
+    if time_interval in ['monthly']:
+        return (
+            analysis['ema']['trend'] == "bullish"
+            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
+            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
+            and analysis['macd']['trend'] == "bullish"
+            # and analysis['bollinger']['trend'] == "oversell"
+            # and analysis['volume']['trend'] == "bullish"
+            and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
+        )
+    elif time_interval in ['weekly']:
+        return (
+            analysis['ema']['trend'] == "bullish"
+            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
+            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
+            and analysis['macd']['trend'] == "bullish"
+            # and analysis['bollinger']['trend'] == "oversell"
+            # and analysis['volume']['trend'] == "bullish"
+            and (analysis['fear_and_greed']['trend'] == "bullish" or analysis['fear_and_greed']['trend'] == "neutral")
+        )
+    elif time_interval in ['daily']:
         return (
             analysis['ema']['trend'] == "bullish"
             and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
@@ -106,7 +126,7 @@ def buy_condition(analysis, time_interval):
 
 def sell_condition(analysis, time_interval):
 
-    if time_interval in ['monthly', 'weekly']:
+    if time_interval in ['monthly']:
         return (
             analysis['ema']['trend'] == "bearish"
             and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
@@ -114,16 +134,41 @@ def sell_condition(analysis, time_interval):
             and analysis['macd']['trend'] == "bearish"
             # and analysis['bollinger']['trend'] == "overbuy"
             # and analysis['volume']['trend'] == "bearish"
+            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
+        )
+    if time_interval in ['weekly']:
+        return (
+            analysis['ema']['trend'] == "bearish"
+            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
+            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
+            and analysis['macd']['trend'] == "bearish"
+            # and analysis['bollinger']['trend'] == "overbuy"
+            # and analysis['volume']['trend'] == "bearish"
+            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
+        )
+    if time_interval in ['daily']:
+        return (
+            analysis['ema']['trend'] == "bearish"
+            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
+            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
+            and analysis['macd']['trend'] == "bearish"
+            # and analysis['bollinger']['trend'] == "overbuy"
+            # and analysis['volume']['trend'] == "bearish"
+            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
         )
     else :
         return (
-            analysis['ema']['trend'] == "bullish"
-            and (analysis['rsi']['trend'] == "oversell" or analysis['rsi']['trend'] == "bullish")
-            and (analysis['stoch_rsi']['trend'] == "oversell" or analysis['stoch_rsi']['trend'] == "bullish")
-            and analysis['macd']['trend'] == "bullish"
-            # and analysis['bollinger']['trend'] == "oversell"
-            # and analysis['volume']['trend'] == "bullish"
+            analysis['ema']['trend'] == "bearish"
+            and (analysis['rsi']['trend'] == "overbuy" or analysis['rsi']['trend'] == "bearish")
+            and (analysis['stoch_rsi']['trend'] == "overbuy" or analysis['stoch_rsi']['trend'] == "bearish")
+            and analysis['macd']['trend'] == "bearish"
+            # and analysis['bollinger']['trend'] == "overbuy"
+            # and analysis['volume']['trend'] == "bearish"
+            and (analysis['fear_and_greed']['trend'] == "bearish" or analysis['fear_and_greed']['trend'] == "neutral")
         )
+
+
+####### DEFINITION PARADYGME
 
 # Fonctions pour placer les ordres
 def place_order(order_type, pair, volume, price=None):

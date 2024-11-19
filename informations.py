@@ -53,8 +53,12 @@ def prepare_data(df):
         df['awesome_oscillador'] = ta.momentum.AwesomeOscillatorIndicator(high=df['high'], low=df['low'], window1=5, window2=34).awesome_oscillator()
 
         # Moyennes mobiles exponentielles
-        for window in [7, 30, 50, 100, 150, 200]:
+        # for window in [7, 30, 50, 100, 150, 200]:
+        for window in [5, 10, 20, 50]:
             df[f'ema{window}'] = ta.trend.EMAIndicator(close=df['close'], window=window).ema_indicator()
+
+        for window in [50, 200]:
+            df[f'sma{window}'] = ta.trend.SMAIndicator(close=df['close'], window=window).sma_indicator()
 
         # Bandes de Bollinger
         bollinger = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
@@ -70,6 +74,12 @@ def prepare_data(df):
 
         # Indicateur ADI
         df['adi'] = ta.volume.acc_dist_index(high=df['high'], low=df['low'], close=df['close'], volume=df['volume'])
+
+        period = 20  # Zones sur 20 périodes, ajustez selon besoin
+    
+        # Calculer les niveaux de résistance et de support
+        df['Resistance'] = df['close'].rolling(window=period).max().shift(1)  # Plus haut des 20 périodes précédentes
+        df['Support'] = df['close'].rolling(window=period).min().shift(1)  # Plus bas des 20 périodes précédentes    
 
         logging.info("Indicateurs techniques calculés avec succès.")
         return df

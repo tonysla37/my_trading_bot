@@ -80,14 +80,21 @@ def analyse_ema(emas):
     elif emas[-1] > emas[0]:
         ema_trend = "bearish"
     
+    # fields = {
+    #     "trend": ema_trend,
+    #     "ema7": emas[0],
+    #     "ema30": emas[1],
+    #     "ema50": emas[2],
+    #     "ema100": emas[3],
+    #     "ema150": emas[4],
+    #     "ema200": emas[5]
+    # }
     fields = {
         "trend": ema_trend,
-        "ema7": emas[0],
-        "ema30": emas[1],
-        "ema50": emas[2],
-        "ema100": emas[3],
-        "ema150": emas[4],
-        "ema200": emas[5]
+        "ema5": emas[0],
+        "ema10": emas[1],
+        "ema20": emas[2],
+        "ema50": emas[3]
     }
     idb.write_indicator_to_influx(fields=fields, indicator="ema", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
@@ -205,6 +212,21 @@ def analyse_rsi(rsi, prev_rsi):
     idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
+def analyse_sma(smas):
+    sma_trend = "neutral"
+    if all(smas[i] > smas[i+1] for i in range(len(smas)-1)):
+        sma_trend = "bullish"
+    elif smas[-1] > smas[0]:
+        sma_trend = "bearish"
+    
+    fields = {
+        "trend": sma_trend,
+        "sma50": smas[0],
+        "sma200": smas[1]
+    }
+    idb.write_indicator_to_influx(fields=fields, indicator="sma", timestamp=int(datetime.now().timestamp() * 1e9))
+    return fields
+
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     srsi_trend = "undefined"
     srsi_strength = "weak"
@@ -290,6 +312,16 @@ def analyse_volume(data, volume_column='volume', short_window=5, long_window=14)
         "price_direction": price_direction
     }
     idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.now().timestamp() * 1e9))
+    return fields
+
+def analyse_support_resistance(support,resistance):
+    sr_trend = "TO BE DEFINED"
+    fields = {
+        "trend": sr_trend,
+        "support": support,
+        "resistance": resistance
+    }
+    idb.write_indicator_to_influx(fields=fields, indicator="support_resistance", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def get_chop(high, low, close, window):

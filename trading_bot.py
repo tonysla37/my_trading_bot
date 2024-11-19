@@ -66,6 +66,7 @@ monthly_trade_in_progress = False
 weekly_trade_in_progress = False
 daily_trade_in_progress = False
 intraday_trade_in_progress = False
+scalping_trade_in_progress = False
 
 # Client Binance avec clés API
 API_KEY = os.getenv('BINANCE_API_KEY')
@@ -104,15 +105,25 @@ def run_analysis(data, fiat_amount, crypto_amount):
             data['adi'].iloc[-1],
             data['adi'].iloc[-2]
         )
+        # res_ema = indic.analyse_ema([
+        #     data['ema7'].iloc[-1],
+        #     data['ema30'].iloc[-1],
+        #     data['ema50'].iloc[-1],
+        #     data['ema100'].iloc[-1],
+        #     data['ema150'].iloc[-1],
+        #     data['ema200'].iloc[-1]
+        # ])
         res_ema = indic.analyse_ema([
-            data['ema7'].iloc[-1],
-            data['ema30'].iloc[-1],
-            data['ema50'].iloc[-1],
-            data['ema100'].iloc[-1],
-            data['ema150'].iloc[-1],
-            data['ema200'].iloc[-1]
+            data['ema5'].iloc[-1],
+            data['ema10'].iloc[-1],
+            data['ema20'].iloc[-1],
+            data['ema50'].iloc[-1]
         ])
         res_rsi = indic.analyse_rsi(rsi=data['rsi'].iloc[-1], prev_rsi=data['rsi'].iloc[-3])
+        res_sma = indic.analyse_sma([
+            data['sma50'].iloc[-1],
+            data['sma200'].iloc[-1]
+        ])
         res_stoch_rsi = indic.analyse_stoch_rsi(
             blue=data['stochastic'].iloc[-1],
             orange=data['stoch_signal'].iloc[-1],
@@ -137,6 +148,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
             histogram=data['macd_histo'].iloc[-1]
         )
         res_volume = indic.analyse_volume(data)  # Assurez-vous que data['volume'] existe
+        res_support_resistance = indic.analyse_support_resistance(data["support"], data["resistance"])
 
         logging.info("Analyse des indicateurs terminée")
     except Exception as e:
@@ -155,12 +167,13 @@ def run_analysis(data, fiat_amount, crypto_amount):
     logging.info(f"ADI : {res_adi}")
     logging.info(f"Bollinger : {res_bollinger}")
     logging.info(f"EMA : {res_ema}")
-    logging.info(f"Bitcoin Fear and greed : {res_fear_and_greed}")
+    logging.info(f"Fear and greed (Bitcoin) : {res_fear_and_greed}")
     logging.info(f"MACD : {res_macd}")
-    logging.info(f"État RSI : {res_rsi}")
-    logging.info(f"État Stoch RSI : {res_stoch_rsi}")
+    logging.info(f"RSI : {res_rsi}")
+    logging.info(f"SMA : {res_sma}")
+    logging.info(f"Stoch RSI : {res_stoch_rsi}")
+    logging.info(f"Support et resistance : {res_support_resistance}")
     logging.info(f"Volume : {res_volume}")
-
 
     analysis = {
         "actual_price": actual_price,
@@ -211,6 +224,7 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
     global weekly_trade_in_progress
     global daily_trade_in_progress
     global intraday_trade_in_progress
+    global scalping_trade_in_progress
 
     match time_interval:
         case "monthly":
@@ -225,6 +239,9 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
         case "intraday":
             interval = Client.KLINE_INTERVAL_1HOUR
             trade_in_progress = intraday_trade_in_progress
+        case "scalping":
+            interval = Client.KLINE_INTERVAL_15MINUTE
+            trade_in_progress = scalping_trade_in_progress
 
     # Log or print the time to track execution
     logging.info(f"#############################################################")
@@ -243,6 +260,8 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
                 daily_trade_in_progress = result["trade_in_progress"]
             case "intraday":
                 intraday_trade_in_progress = result["trade_in_progress"]
+            case "intraday":
+                scalping_trade_in_progress = result["trade_in_progress"]
         
         return result
 
@@ -261,6 +280,8 @@ def main():
     daily_crypto_amount = 1
     intraday_fiat_amount = 10000
     intraday_crypto_amount = 1
+    scalping_fiat_amount = 10000
+    scalping_crypto_amount = 1
 
     while True:
         try:
@@ -268,6 +289,7 @@ def main():
             weekly_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=weekly_fiat_amount, cur_crypto_amount=weekly_crypto_amount, time_interval="weekly")
             daily_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=daily_fiat_amount, cur_crypto_amount=daily_crypto_amount, time_interval="daily")
             intraday_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=intraday_fiat_amount, cur_crypto_amount=intraday_crypto_amount, time_interval="intraday")
+            scalping_result = trading(key=API_KEY, secret=API_SECRET, cur_fiat_amount=scalping_fiat_amount, cur_crypto_amount=scalping_crypto_amount, time_interval="scalping")
             monthly_fiat_amount = monthly_result["new_fiat_amount"]
             monthly_crypto_amount = monthly_result["new_crypto_amount"]
             weekly_fiat_amount = weekly_result["new_fiat_amount"]
@@ -276,6 +298,8 @@ def main():
             daily_crypto_amount = daily_result["new_crypto_amount"]
             intraday_fiat_amount = intraday_result["new_fiat_amount"]
             intraday_crypto_amount = intraday_result["new_crypto_amount"]
+            scaplping_fiat_amount = scalping_result["new_fiat_amount"]
+            scaplping_crypto_amount = scalping_result["new_crypto_amount"]
         except Exception as e:
             logging.error(f"An error occurred: {e}")
 
