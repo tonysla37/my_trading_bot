@@ -105,6 +105,12 @@ def run_analysis(data, fiat_amount, crypto_amount):
             data['adi'].iloc[-1],
             data['adi'].iloc[-2]
         )
+        res_bollinger = indic.analyse_bollinger(
+            high=data['bol_high'].iloc[-1],
+            low=data['bol_low'].iloc[-1],
+            average=data['bol_medium'].iloc[-1],
+            close=data['close'].iloc[-1]
+        )
         # res_ema = indic.analyse_ema([
         #     data['ema7'].iloc[-1],
         #     data['ema30'].iloc[-1],
@@ -119,23 +125,6 @@ def run_analysis(data, fiat_amount, crypto_amount):
             data['ema20'].iloc[-1],
             data['ema50'].iloc[-1]
         ])
-        res_rsi = indic.analyse_rsi(rsi=data['rsi'].iloc[-1], prev_rsi=data['rsi'].iloc[-3])
-        res_sma = indic.analyse_sma([
-            data['sma50'].iloc[-1],
-            data['sma200'].iloc[-1]
-        ])
-        res_stoch_rsi = indic.analyse_stoch_rsi(
-            blue=data['stochastic'].iloc[-1],
-            orange=data['stoch_signal'].iloc[-1],
-            prev_blue=data['stochastic'].iloc[-3],
-            prev_orange=data['stoch_signal'].iloc[-3]
-        )
-        res_bollinger = indic.analyse_bollinger(
-            high=data['bol_high'].iloc[-1],
-            low=data['bol_low'].iloc[-1],
-            average=data['bol_medium'].iloc[-1],
-            close=data['close'].iloc[-1]
-        )
         res_fear_and_greed = indic.analyse_fear_and_greed(
             int(bitcoin_fear_and_greed_index)
         )
@@ -147,8 +136,25 @@ def run_analysis(data, fiat_amount, crypto_amount):
             prev_signal=data['macd_signal'].iloc[-2],
             histogram=data['macd_histo'].iloc[-1]
         )
+        res_rsi = indic.analyse_rsi(
+            rsi=data['rsi'].iloc[-1],
+            prev_rsi=data['rsi'].iloc[-3]
+        )
+        res_sma = indic.analyse_sma([
+            data['sma50'].iloc[-1],
+            data['sma200'].iloc[-1]
+        ])
+        res_stoch_rsi = indic.analyse_stoch_rsi(
+            blue=data['stochastic'].iloc[-1],
+            orange=data['stoch_signal'].iloc[-1],
+            prev_blue=data['stochastic'].iloc[-3],
+            prev_orange=data['stoch_signal'].iloc[-3]
+        )
+        res_support_resistance = indic.analyse_support_resistance(
+            support=data["support"].iloc[-1], 
+            resistance=data["resistance"].iloc[-1]
+        )
         res_volume = indic.analyse_volume(data)  # Assurez-vous que data['volume'] existe
-        res_support_resistance = indic.analyse_support_resistance(data["support"], data["resistance"])
 
         logging.info("Analyse des indicateurs terminée")
     except Exception as e:
@@ -183,13 +189,15 @@ def run_analysis(data, fiat_amount, crypto_amount):
         "fiat_amount": fiat_amount,
         "crypto_amount": crypto_amount,
         "adi": res_adi,
-        "ema": res_ema,
-        "rsi": res_rsi,
-        "stoch_rsi": res_stoch_rsi,
-        "macd": res_macd,
         "bollinger": res_bollinger,
-        "volume": res_volume,
-        "fear_and_greed": res_fear_and_greed
+        "ema": res_ema,
+        "fear_and_greed": res_fear_and_greed,
+        "macd": res_macd,
+        "rsi": res_rsi,
+        "sma": res_sma,
+        "stoch_rsi": res_stoch_rsi,
+        "support_resistance": res_support_resistance,
+        "volume": res_volume
     }
 
     return analysis

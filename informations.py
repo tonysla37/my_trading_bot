@@ -78,8 +78,8 @@ def prepare_data(df):
         period = 20  # Zones sur 20 périodes, ajustez selon besoin
     
         # Calculer les niveaux de résistance et de support
-        df['Resistance'] = df['close'].rolling(window=period).max().shift(1)  # Plus haut des 20 périodes précédentes
-        df['Support'] = df['close'].rolling(window=period).min().shift(1)  # Plus bas des 20 périodes précédentes    
+        df['resistance'] = df['close'].rolling(window=period).max().shift(1)  # Plus haut des 20 périodes précédentes
+        df['support'] = df['close'].rolling(window=period).min().shift(1)  # Plus bas des 20 périodes précédentes
 
         logging.info("Indicateurs techniques calculés avec succès.")
         return df

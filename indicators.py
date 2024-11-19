@@ -314,8 +314,8 @@ def analyse_volume(data, volume_column='volume', short_window=5, long_window=14)
     idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
-def analyse_support_resistance(support,resistance):
-    sr_trend = "TO BE DEFINED"
+def analyse_support_resistance(support, resistance):
+    sr_trend = "tbd"
     fields = {
         "trend": sr_trend,
         "support": support,
