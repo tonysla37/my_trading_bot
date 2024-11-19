@@ -151,6 +151,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
             prev_orange=data['stoch_signal'].iloc[-3]
         )
         res_support_resistance = indic.analyse_support_resistance(
+            price=data['close'].iloc[-1],
             support=data["support"].iloc[-1], 
             resistance=data["resistance"].iloc[-1]
         )

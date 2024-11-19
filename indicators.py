@@ -266,6 +266,23 @@ def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
     idb.write_indicator_to_influx(fields=fields, indicator="stoch_rsi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
+def analyse_support_resistance(price, support, resistance):
+    if price > resistance:
+        sr_trend = "bullish"
+    elif price < support:
+        sr_trend = "bearish"
+    else:
+        sr_trend = "neutral"
+
+    fields = {
+        "trend": sr_trend,
+        "price": price,
+        "support": support,
+        "resistance": resistance
+    }
+    idb.write_indicator_to_influx(fields=fields, indicator="support_resistance", timestamp=int(datetime.now().timestamp() * 1e9))
+    return fields
+
 def analyse_volume(data, volume_column='volume', short_window=5, long_window=14):
     """Analyse le volume pour déterminer si la tendance est bullish ou bearish et détecter des activités de baleines."""
     data['volume_short_ma'] = data[volume_column].rolling(window=short_window).mean()
@@ -312,16 +329,6 @@ def analyse_volume(data, volume_column='volume', short_window=5, long_window=14)
         "price_direction": price_direction
     }
     idb.write_indicator_to_influx(fields=fields, indicator="volume", timestamp=int(datetime.now().timestamp() * 1e9))
-    return fields
-
-def analyse_support_resistance(support, resistance):
-    sr_trend = "tbd"
-    fields = {
-        "trend": sr_trend,
-        "support": support,
-        "resistance": resistance
-    }
-    idb.write_indicator_to_influx(fields=fields, indicator="support_resistance", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
 def get_chop(high, low, close, window):
