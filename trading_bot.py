@@ -157,6 +157,11 @@ def run_analysis(data, fiat_amount, crypto_amount):
         )
         res_volume = indic.analyse_volume(data)  # Assurez-vous que data['volume'] existe
 
+        # Calculer les niveaux de retracement de Fibonacci
+        retracement_levels, extension_levels = indic.calculate_fibonacci_retracement(data)
+
+        google_trend = indic.define_googletrend("Bitcoin")
+
         logging.info("Analyse des indicateurs terminée")
     except Exception as e:
         logging.error(f"Erreur lors de l'analyse des indicateurs : {e}")
@@ -181,8 +186,12 @@ def run_analysis(data, fiat_amount, crypto_amount):
     logging.info(f"Stoch RSI : {res_stoch_rsi}")
     logging.info(f"Support et resistance : {res_support_resistance}")
     logging.info(f"Volume : {res_volume}")
+    logging.info(f"Retracement Fibonacci : {retracement_levels}")
+    logging.info(f"Extensions Fibonacci : {extension_levels}")
+    logging.info(f"Google trend : {google_trend}")
 
     analysis = {
+        "pair_symbol": pair_symbol,
         "actual_price": actual_price,
         "trade_amount": trade_amount,
         "min_token": min_token,
@@ -198,7 +207,10 @@ def run_analysis(data, fiat_amount, crypto_amount):
         "sma": res_sma,
         "stoch_rsi": res_stoch_rsi,
         "support_resistance": res_support_resistance,
-        "volume": res_volume
+        "volume": res_volume,
+        "retracements_fibonacci": retracement_levels,
+        "extensions_fibonacci": extension_levels,
+        "google_trend": google_trend
     }
 
     return analysis

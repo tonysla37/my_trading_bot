@@ -1,10 +1,12 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
 import logging
 
 import influx_utils as idb
 
 from datetime import datetime, timedelta
+from pytrends.request import TrendReq
 
 ###################### Analyse des indicateurs techniques ######################
 def analyse_adi(adi, prev_adi):
@@ -80,6 +82,8 @@ def analyse_ema(emas):
     elif emas[-1] > emas[0]:
         ema_trend = "bearish"
     
+    # /!\ définir la tendance de fond
+
     # fields = {
     #     "trend": ema_trend,
     #     "ema7": emas[0],
@@ -358,3 +362,69 @@ def get_chop(high, low, close, window):
     # idb.write_indicator_to_influx(fields=fields, indicator="chop_index", timestamp=int(datetime.utcnow().timestamp() * 1e9))
     # return fields
     return pd.Series(chop_serie, name="CHOP")
+
+def calculate_fibonacci_retracement(data):
+    # Supposons que data soit un DataFrame avec des colonnes de prix
+
+    # Trouver le point haut et le point bas dans la période choisie
+    price_max = data['close'].max()
+    price_min = data['close'].min()
+
+    # Calculer les niveaux de Fibonacci
+    diff = price_max - price_min
+    retracement_levels = {
+        "Level 0%": price_max,
+        "Level 23.6%": price_max - diff * 0.236,
+        "Level 38.2%": price_max - diff * 0.382,
+        "Level 50%": price_max - diff * 0.5,
+        "Level 61.8%": price_max - diff * 0.618,
+        "Level 100%": price_min,
+    }
+    
+    # Calcul des niveaux d'extension
+    extension_levels = {
+        "Level 161.8%": price_max + diff * 0.618,
+        "Level 261.8%": price_max + diff * 1.618,
+    }
+
+    idb.write_indicator_to_influx(fields=retracement_levels, indicator="retracement_fibonacci", timestamp=int(datetime.now().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=extension_levels, indicator="extension_fibonacci", timestamp=int(datetime.now().timestamp() * 1e9))
+    return retracement_levels, extension_levels
+
+
+def define_googletrend(crypto_term):
+    # Initialiser Pytrends
+    pytrends = TrendReq(hl='en-US', tz=360)
+
+    # Choisir le terme de recherche
+    # crypto_term = 'Bitcoin'  # Remplacez par la cryptomonnaie de votre choix
+
+    # Obtenir les données de Google Trends
+    pytrends.build_payload([crypto_term], timeframe='today 3-m', geo='', gprop='')
+    trend_data = pytrends.interest_over_time()
+
+    # Vérifie si les données existent
+    if not trend_data.empty:
+        # Extraire les dates et les valeurs d'intérêt
+        trend_data = trend_data[crypto_term]
+        
+        # Visualisation des données
+        plt.figure(figsize=(12, 6))
+        trend_data.plot(title=f'Google Trends Interest for {crypto_term}', ylabel='Interest', xlabel='Date')
+        plt.grid()
+        plt.show()
+
+        # Calcul de la tendance de fond
+        growing_interest = trend_data.diff().dropna()
+        
+        if growing_interest.iloc[-1] > 0:
+            trend_status = "Growing Interest"
+        else:
+            trend_status = "Declining Interest"
+
+        print(f'Trend Status: {trend_status}')
+    else:
+        print(f'No data found for {crypto_term} in the specified timeframe.')
+
+    idb.write_indicator_to_influx(fields=trend_status, indicator="google_trend", timestamp=int(datetime.now().timestamp() * 1e9))
+    return trend_status
