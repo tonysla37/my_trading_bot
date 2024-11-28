@@ -160,7 +160,7 @@ def run_analysis(data, fiat_amount, crypto_amount):
         # Calculer les niveaux de retracement de Fibonacci
         retracement_levels, extension_levels = indic.calculate_fibonacci_retracement(data)
 
-        google_trend = indic.define_googletrend("Bitcoin")
+        google_trend = indic.define_googletrend(crypto_term='Bitcoin')
 
         logging.info("Analyse des indicateurs terminée")
     except Exception as e:

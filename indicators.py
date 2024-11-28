@@ -396,9 +396,6 @@ def define_googletrend(crypto_term):
     # Initialiser Pytrends
     pytrends = TrendReq(hl='en-US', tz=360)
 
-    # Choisir le terme de recherche
-    # crypto_term = 'Bitcoin'  # Remplacez par la cryptomonnaie de votre choix
-
     # Obtenir les données de Google Trends
     pytrends.build_payload([crypto_term], timeframe='today 3-m', geo='', gprop='')
     trend_data = pytrends.interest_over_time()
@@ -422,9 +419,9 @@ def define_googletrend(crypto_term):
         else:
             trend_status = "Declining Interest"
 
-        print(f'Trend Status: {trend_status}')
-    else:
-        print(f'No data found for {crypto_term} in the specified timeframe.')
+        fields = {
+            "trend_status": trend_status
+        }
 
-    idb.write_indicator_to_influx(fields=trend_status, indicator="google_trend", timestamp=int(datetime.now().timestamp() * 1e9))
+    idb.write_indicator_to_influx(fields=fields, indicator="google_trend", timestamp=int(datetime.now().timestamp() * 1e9))
     return trend_status
