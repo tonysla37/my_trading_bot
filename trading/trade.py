@@ -1,3 +1,16 @@
+# __all__ liste les fonctions que vous souhaitez exposer
+__all__ = [
+    'send_webhook_message',
+    'klines_to_dataframe',
+    'get_binance_data',
+    'get_kraken_data',
+    'buy_condition',
+    'sell_condition',
+    'analyze_market_trend',
+    'place_order',
+    'trade_action'
+]
+
 import aiohttp
 import asyncio
 import datetime
@@ -12,8 +25,8 @@ from pykrakenapi import KrakenAPI
 from scipy.optimize import fsolve
 from termcolor import colored
 
-import informations as info
-import influx_utils as idb
+import trading.informations as info
+import trading.influx_utils as idb
 
 # DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
 DISCORD_WEBHOOK_URL = "https://discordapp.com/api/webhooks/984026868552433674/yw6FcEhCZYPzgFdKJG6aAo7m52xGRIHLs9g0OocEQzYSofCGqCjsagtUMcTh26ewpOJs"

@@ -1,0 +1,45 @@
+2024-12-07 10:13:03,257 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:13:03,257 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:13:07,914 [INFO] 127.0.0.1 - - [07/Dec/2024 10:13:07] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:13:15,985 [INFO] 127.0.0.1 - - [07/Dec/2024 10:13:15] "GET / HTTP/1.1" 200 -
+2024-12-07 10:14:43,075 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:14:43,075 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:14:45,724 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:45] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:14:50,329 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:50] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:14:51,111 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:51] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:14:51,296 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:51] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:14:51,493 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:51] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:14:51,656 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:51] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:14:51,849 [INFO] 127.0.0.1 - - [07/Dec/2024 10:14:51] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:16:13,416 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:16:13,416 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:16:16,486 [INFO] 127.0.0.1 - - [07/Dec/2024 10:16:16] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:17:36,359 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:17:36,359 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:17:38,466 [INFO] 127.0.0.1 - - [07/Dec/2024 10:17:38] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:18:10,561 [INFO] 127.0.0.1 - - [07/Dec/2024 10:18:10] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:18:11,161 [INFO] 127.0.0.1 - - [07/Dec/2024 10:18:11] "[33mGET /index.html HTTP/1.1[0m" 404 -
+2024-12-07 10:18:16,886 [INFO] 127.0.0.1 - - [07/Dec/2024 10:18:16] "GET / HTTP/1.1" 200 -
+2024-12-07 10:18:20,603 [INFO] 127.0.0.1 - - [07/Dec/2024 10:18:20] "GET /config HTTP/1.1" 200 -
+2024-12-07 10:19:41,419 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:19:41,419 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:19:46,737 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:46] "GET / HTTP/1.1" 200 -
+2024-12-07 10:19:48,217 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:48] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:19:49,561 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:49] "GET / HTTP/1.1" 200 -
+2024-12-07 10:19:50,674 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:50] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:19:51,766 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:51] "GET /logs HTTP/1.1" 200 -
+2024-12-07 10:19:52,469 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:52] "GET / HTTP/1.1" 200 -
+2024-12-07 10:19:53,358 [INFO] 127.0.0.1 - - [07/Dec/2024 10:19:53] "GET /config HTTP/1.1" 200 -
+2024-12-07 10:20:11,000 [INFO] 127.0.0.1 - - [07/Dec/2024 10:20:11] "GET / HTTP/1.1" 200 -
+2024-12-07 10:25:38,256 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:25:38,256 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:25:54,555 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:7777
+2024-12-07 10:25:54,555 [INFO] [33mPress CTRL+C to quit[0m
+2024-12-07 10:25:57,510 [INFO] 127.0.0.1 - - [07/Dec/2024 10:25:57] "GET / HTTP/1.1" 200 -

@@ -1,3 +1,17 @@
+# __all__ liste les fonctions que vous souhaitez exposer
+__all__ = [
+    'round_fields',
+    'write_to_influx',
+    'get_influx_data',
+    'get_historical_compare_data',
+    'test_write',
+    'write_bt_trade_to_influx',
+    'get_bt_trades',
+    'write_trade_to_influx',
+    'get_trades',
+    'write_indicator_to_influx'
+]
+
 import datetime
 import logging
 import os

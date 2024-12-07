@@ -21,3 +21,4 @@ pyyaml
 influxdb-client
 bs4
 pytrends
+flask

@@ -1,7 +1,7 @@
 trading:
-  pair_symbol: "BTCUSDT"
-  fiat_symbol: "USD"
-  crypto_symbol: "BTC"
+  pair_symbol: BTCUSDT
+  fiat_symbol: USD
+  crypto_symbol: BTC
   my_truncate: 5
   protection:
     sl_level: 0.02
@@ -12,7 +12,7 @@ trading:
   sell_ready: true
   bench_mode: true
   backtest: false
-  risk_level: "Mid"
+  risk_level: Mid
   capital: 100
   cible: 200000
   temps: 5

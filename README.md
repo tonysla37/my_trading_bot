@@ -17,3 +17,12 @@ deactivate
 
 supprimer venv ->
 rm -rf bot
+
+
+Tester le bot en local
+python -m unittest discover tests
+
+lancer le flask en local :
+export FLASK_APP=app.py
+export FLASK_ENV=development  # Cela active le mode debug pour un développement plus facile
+flask run --port 7777

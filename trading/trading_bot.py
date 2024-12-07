@@ -8,34 +8,44 @@ import yaml
 from binance.client import Client
 from datetime import datetime, timedelta
 
-import backtest as bt
-import indicators as indic  # Votre module optimisé
-import influx_utils as idb
-import informations as info  # Votre module optimisé
-import trade as trade  # Votre module optimisé
+import trading.backtest as bt
+import trading.indicators as indic  # Votre module optimisé
+import trading.influx_utils as idb
+import trading.informations as info  # Votre module optimisé
+import trading.trade as trade  # Votre module optimisé
 
 import warnings
 
 # Ignorer tous les FutureWarning
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# Définir le chemin vers le fichier de log à la racine du projet
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+logfile = os.path.join(project_root, 'trading_bot.log')
+
 # Configuration de la journalisation
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler("trading_bot.log"),
+        logging.FileHandler(logfile),
         logging.StreamHandler()
     ]
 )
 
+# Chemin vers le fichier de configuration à la racine du projet
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+CONFIG_PATH = os.path.join(BASE_DIR, 'config.yaml')
+
+# print(f"Looking for config.yaml at: {CONFIG_PATH}")
+
 # Charger le fichier de configuration YAML
-def load_config(file_path):
+def load_config(file_path=CONFIG_PATH):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
 
-# Charger la configuration
-config = load_config('config.yaml')
+# Exemple d'utilisation
+config = load_config()
 
 # Extraire les paramètres de configuration
 trading_config = config['trading']
@@ -297,6 +307,7 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
     pass
 
 def main():
+    logging.info("Trading bot started.")
 
     monthly_fiat_amount = 10000
     monthly_crypto_amount = 1

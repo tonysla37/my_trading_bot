@@ -3,23 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-import indicators as indic
-import trade as trade
-import influx_utils as idb
+import trading.indicators as indic
+import trading.trade as trade
+import trading.influx_utils as idb
 
 from datetime import datetime, timedelta
-
-# Configuration de la journalisation
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler("backtest.log"),
-        logging.StreamHandler()
-    ]
-)
-
-# influx_utils.test_write()
 
 def backtest_strategy(fiatAmount, cryptoAmount, values):
     bt_df = values.copy()

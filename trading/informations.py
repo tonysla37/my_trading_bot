@@ -1,3 +1,15 @@
+# __all__ liste les fonctions que vous souhaitez exposer
+__all__ = [
+    'get_bitcoin_fear_and_greed_index',
+    'prepare_data',
+    'define_risk',
+    'get_balance',
+    'truncate',
+    'func_diff',
+    'find_rate',
+    'calculate_rendement'
+]
+
 import logging
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -8,7 +20,7 @@ from binance.client import Client
 from math import floor
 from bs4 import BeautifulSoup
 
-import indicators as indic
+import trading.indicators as indic
 
 def get_bitcoin_fear_and_greed_index():
     url = "https://alternative.me/crypto/fear-and-greed-index/"
