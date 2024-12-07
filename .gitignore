@@ -1,6 +1,7 @@
 .env
 backtest.log
 trading_bot.log
+flask.log
 OLD
 bot
 __pycache__
