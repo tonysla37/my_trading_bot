@@ -426,7 +426,7 @@ def define_googletrend(crypto_term):
         plt.figure(figsize=(12, 6))
         trend_data.plot(title=f'Google Trends Interest for {crypto_term}', ylabel='Interest', xlabel='Date')
         plt.grid()
-        plt.show()
+        # plt.show()
 
         # Calcul de la tendance de fond
         growing_interest = trend_data.diff().dropna()
