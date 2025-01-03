@@ -1,6 +1,9 @@
 import logging
 import pandas as pd
 import numpy as np
+import ta
+import yaml
+import os
 
 import trading.indicators as indic
 import trading.trade as trade
@@ -8,20 +11,20 @@ import trading.influx_utils as idb
 
 from datetime import datetime, timedelta
 
-def backtest_strategy(fiat_amount, crypto_amount, data):
+# Charger les configurations à partir du fichier config.yaml
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+    with open(config_path, 'r') as file:
+        return yaml.safe_load(file)
+
+def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval):
     trade_in_progress = False
     buy_ready = True
     sell_ready = False
     bench_mode = True
-    protection = {
-        "sl_level": 0.02,
-        "tp1_level": 0.1,
-        "sl_amount": 1,
-        "tp1_amount": 1
-    }
-    my_truncate = 5
-    pair_symbol = "BTCUSDT"
-    time_interval = "1d"
+    protection = config['trading']['protection']
+    my_truncate = config['trading']['my_truncate']
+    pair_symbol = config['trading']['pair_symbol']
     analysis = {
         "fiat_amount": fiat_amount,
         "crypto_amount": crypto_amount
@@ -65,29 +68,37 @@ def backtest_strategy(fiat_amount, crypto_amount, data):
     return analysis
 
 if __name__ == "__main__":
+    # Charger les configurations
+    config = load_config()
+
     # Exemple fictif de DataFrame
     dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
     data = pd.DataFrame({
         'close': np.random.random(100) * 100,
         'high': np.random.random(100) * 100,
         'low': np.random.random(100) * 100,
-        'ema7': np.random.random(100) * 100,
-        'ema30': np.random.random(100) * 100,
-        'ema50': np.random.random(100) * 100,
-        'ema100': np.random.random(100) * 100,
-        'rsi': np.random.random(100) * 100,
-        'stochastic': np.random.random(100),
-        'stoch_signal': np.random.random(100),
-        'adi': np.random.random(100) * 100,
-        'fear_and_greed': np.random.random(100) * 100,
-        'macd': np.random.random(100) * 100,
-        'signal': np.random.random(100) * 100,
-        'histogram': np.random.random(100) * 100
+        'volume': np.random.random(100) * 100
     }, index=dates)
+
+    # Calcul des EMA
+    data['ema7'] = data['close'].ewm(span=7, adjust=False).mean()
+    data['ema30'] = data['close'].ewm(span=30, adjust=False).mean()
+    data['ema50'] = data['close'].ewm(span=50, adjust=False).mean()
+    data['ema100'] = data['close'].ewm(span=100, adjust=False).mean()
+
+    # Calcul des autres indicateurs nécessaires
+    data['rsi'] = ta.momentum.rsi(data['close'], window=14)
+    data['stochastic'] = ta.momentum.stoch(data['high'], data['low'], data['close'], window=14)
+    data['stoch_signal'] = ta.momentum.stoch_signal(data['high'], data['low'], data['close'], window=14)
+    data['adi'] = ta.volume.acc_dist_index(data['high'], data['low'], data['close'], data['volume'])
+    data['macd'] = ta.trend.macd(data['close'])
+    data['signal'] = ta.trend.macd_signal(data['close'])
+    data['histogram'] = ta.trend.macd_diff(data['close'])
+    data['fear_and_greed'] = np.random.random(100) * 100  # Exemple fictif
 
     # Calcul des indicateurs supplémentaires si nécessaire
     data['chop'] = indic.get_chop(data['high'], data['low'], data['close'])
 
     # Exécution du backtest
-    backtest_result = backtest_strategy(fiat_amount=10000, crypto_amount=0, data=data)
+    backtest_result = backtest_strategy(fiat_amount=10000, crypto_amount=0, data=data, config=config, time_interval='1d')
     print(backtest_result)

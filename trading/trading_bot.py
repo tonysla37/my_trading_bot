@@ -246,7 +246,7 @@ def run_trading(client, time_interval, data, analysis, market_trend, score, trad
         # Exécuter le backtest
         # logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        result = bt.backtest_strategy(fiat_amount=analysis['fiat_amount'], crypto_amount=analysis['crypto_amount'], data=data)
+        result = bt.backtest_strategy(fiat_amount=analysis['fiat_amount'], crypto_amount=analysis['crypto_amount'], data=data, config=config, time_interval=time_interval)
         pass
     else:
         # Exécuter les actions de trading
