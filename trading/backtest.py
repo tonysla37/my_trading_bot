@@ -1,6 +1,5 @@
 import logging
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
 
 import trading.indicators as indic
@@ -9,165 +8,61 @@ import trading.influx_utils as idb
 
 from datetime import datetime, timedelta
 
-def backtest_strategy(fiatAmount, cryptoAmount, values):
-    bt_df = values.copy()
-    bt_dt = pd.DataFrame(columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
+def backtest_strategy(fiat_amount, crypto_amount, data):
+    trade_in_progress = False
+    buy_ready = True
+    sell_ready = False
+    bench_mode = True
+    protection = {
+        "sl_level": 0.02,
+        "tp1_level": 0.1,
+        "sl_amount": 1,
+        "tp1_amount": 1
+    }
+    my_truncate = 5
+    pair_symbol = "BTCUSDT"
+    time_interval = "1d"
+    analysis = {
+        "fiat_amount": fiat_amount,
+        "crypto_amount": crypto_amount
+    }
 
-    # Initialisation des variables
-    bt_usdt = fiatAmount
-    bt_initial_wallet = bt_usdt
-    bt_coin = cryptoAmount
-    bt_wallet = fiatAmount
-    bt_previous_row = bt_df.iloc[0]
-    bt_last_ath = 0.0
-    bt_maker_fee = 0.0003
-    bt_taker_fee = 0.0007
-    bt_buy_ready = True
-    bt_sell_ready = True
+    for i in range(1, len(data)):
+        # Préparer les données pour cette itération
+        current_data = data.iloc[:i+1]
 
-    logging.info(f"Solde initial : {bt_usdt} USD, Cryptomonnaie initiale : {bt_coin} coins")
+        # Calculer les indicateurs techniques
+        indicators = {
+            "adi": indic.analyse_adi(current_data['adi'].iloc[-1], current_data['adi'].iloc[-2]),
+            "bollinger": indic.analyse_bollinger(current_data['high'].iloc[-1], current_data['low'].iloc[-1], current_data['close'].rolling(window=20).mean().iloc[-1], current_data['close'].iloc[-1]),
+            "ema": indic.analyse_ema([current_data['ema7'].iloc[-1], current_data['ema30'].iloc[-1], current_data['ema50'].iloc[-1], current_data['ema100'].iloc[-1]]),
+            "fear_and_greed": indic.analyse_fear_and_greed(current_data['fear_and_greed'].iloc[-1]),
+            "macd": indic.analyse_macd(current_data['macd'].iloc[-1], current_data['signal'].iloc[-1], current_data['histogram'].iloc[-1], current_data['macd'].iloc[-2], current_data['signal'].iloc[-2]),
+            "rsi": indic.analyse_rsi(current_data['rsi'].iloc[-1], current_data['rsi'].iloc[-2]),
+            "stoch_rsi": indic.analyse_stoch_rsi(current_data['stochastic'].iloc[-1], current_data['stoch_signal'].iloc[-1], current_data['stochastic'].iloc[-2], current_data['stoch_signal'].iloc[-2]),
+            "volume": indic.analyse_volume(current_data)
+        }
 
-    for bt_index, bt_row in bt_df.iterrows():
-        bt_res_ema = indic.analyse_ema([
-            bt_row['ema7'], bt_row['ema30'], bt_row['ema50'],
-            bt_row['ema100'], bt_row['ema150'], bt_row['ema200']
-        ])
-        bt_res_rsi = indic.analyse_rsi(rsi=bt_row['rsi'], prev_rsi=bt_previous_row.get('rsi', 50))
-        bt_res_stoch_rsi = indic.analyse_stoch_rsi(
-            blue=bt_row['stochastic'], 
-            orange=bt_row['stoch_signal'],
-            prev_blue=bt_previous_row.get('stochastic', 0),
-            prev_orange=bt_previous_row.get('stoch_signal', 0)
+        # Analyser la tendance du marché
+        market_trend, score = trade.analyze_market_trend(indicators)
+
+        # Exécuter les actions de trading
+        trade_in_progress = trade.trade_action(
+            bench_mode=bench_mode,
+            time_interval=time_interval,
+            pair_symbol=pair_symbol,
+            values=current_data,
+            buy_ready=buy_ready,
+            sell_ready=sell_ready,
+            my_truncate=my_truncate,
+            protection=protection,
+            analysis=analysis,
+            market_trend=market_trend,
+            score=score,
+            trade_in_progress=trade_in_progress
         )
 
-        # Condition d'achat
-        if trade.buy_condition(bt_row, bt_previous_row) and bt_usdt > 0 and bt_buy_ready:
-            bt_buy_price = bt_row['close']
-            bt_stop_loss = bt_buy_price - 0.02 * bt_buy_price
-            bt_take_profit = bt_buy_price + 0.1 * bt_buy_price
-            bt_coin = bt_usdt / bt_buy_price
-            bt_fee = bt_taker_fee * bt_coin
-            bt_coin -= bt_fee
-            bt_usdt = 0.0
-            bt_wallet = bt_coin * bt_row['close']
-            bt_last_ath = max(bt_wallet, bt_last_ath)
-
-            logging.info(f"Achat exécuté le {bt_index} à {bt_buy_price} USD, Solde après frais : {bt_wallet} USD")
-
-            bt_myrow = pd.DataFrame([[
-                bt_index, "Buy", "Buy Market", bt_buy_price,
-                bt_fee * bt_row['close'], bt_usdt, bt_coin, bt_wallet,
-                (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
-            ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
-
-            bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
-
-            # Écrire dans InfluxDB après l'achat
-            # idb.write_to_influx(
-            #     measurement="trades",
-            #     tags={"type": "buy"},
-            #     fields={
-            #         "price": float(bt_buy_price),
-            #         "wallet": float(bt_wallet),
-            #         "fiat_amount": float(bt_usdt),
-            #         "crypto_amount": float(bt_coin),
-            #         "close": float(bt_row['close'])
-            #     },
-            #     timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
-            # )
-            # timestamp_now = int(datetime.utcnow().timestamp() * 1e9)  # Timestamp en nanosecondes
-            timestamp_now = pd.to_datetime(bt_index).timestamp() * 1e9
-            idb.write_bt_trade_to_influx(price=float(bt_buy_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="buy", timestamp=timestamp_now)
-
-        # Vente de marché
-        elif trade.sell_condition(bt_row, bt_previous_row):
-            if bt_coin > 0 and bt_sell_ready:
-                bt_sell_price = bt_row['close']
-                bt_usdt = bt_coin * bt_sell_price
-                bt_fee = bt_taker_fee * bt_usdt
-                bt_usdt -= bt_fee
-                bt_coin = 0.0
-                bt_wallet = bt_usdt
-                bt_last_ath = max(bt_wallet, bt_last_ath)
-
-                logging.info(f"Vente exécutée le {bt_index} à {bt_sell_price} USD, Solde après frais : {bt_wallet} USD")
-
-                bt_myrow = pd.DataFrame([[
-                    bt_index, "Sell", "Sell Market", bt_sell_price,
-                    bt_fee, bt_usdt, bt_coin, bt_wallet,
-                    (bt_wallet - bt_last_ath) / bt_last_ath if bt_last_ath != 0 else 0
-                ]], columns=['date', 'position', 'reason', 'price', 'frais', 'fiat', 'coins', 'wallet', 'drawBack'])
-                bt_dt = pd.concat([bt_dt, bt_myrow], ignore_index=True)
-                bt_buy_ready = True
-                bt_sell_ready = False
-
-                # Écrire dans InfluxDB après la vente
-                # idb.write_to_influx(
-                #     measurement="trades",
-                #     tags={"type": "sell"},
-                #     fields={
-                #         "price": float(bt_sell_price),
-                #         "wallet": float(bt_wallet),
-                #         "fiat_amount": float(bt_usdt),
-                #         "crypto_amount": float(bt_coin),
-                #         "close": float(bt_row['close'])
-                #     },
-                #     timestamp=pd.to_datetime(bt_index).timestamp() * 1e9
-                # )
-                # timestamp_now = int(datetime.utcnow().timestamp() * 1e9)  # Timestamp en nanosecondes
-                timestamp_now = pd.to_datetime(bt_index).timestamp() * 1e9
-                idb.write_bt_trade_to_influx(price=float(bt_sell_price), wallet=float(bt_wallet), fiat_amount=float(bt_usdt), crypto_amount=float(bt_coin), close=float(bt_row['close']), trade_type="sell", timestamp=timestamp_now)
-
-        bt_previous_row = bt_row
-
-    # Résumé du backtest
-    logging.info("Résumé du backtest.")
-    logging.info(f"Période : [{bt_df.index[0]}] -> [{bt_df.index[-1]}]")
-    bt_dt.set_index('date', inplace=True)
-    bt_dt.index = pd.to_datetime(bt_dt.index)
-    bt_dt['resultat'] = bt_dt['wallet'].diff()
-    bt_dt['resultat%'] = bt_dt['wallet'].pct_change() * 100
-    bt_dt.loc[bt_dt['position'] == 'Buy', ['resultat', 'resultat%']] = None
-
-    bt_dt['tradeIs'] = bt_dt['resultat%'].apply(lambda x: 'Good' if x > 0 else ('Bad' if x <= 0 else ''))
-    
-    bt_initial_close = bt_df.iloc[0]['close']
-    bt_last_close = bt_df.iloc[-1]['close']
-    bt_hold_percentage = ((bt_last_close - bt_initial_close) / bt_initial_close) * 100
-    bt_algo_percentage = ((bt_wallet - bt_initial_wallet) / bt_initial_wallet) * 100
-    bt_vs_hold_percentage = ((bt_algo_percentage - bt_hold_percentage) / bt_hold_percentage) * 100 if bt_hold_percentage != 0 else 0
-
-    logging.info(f"Solde initial : {str(fiatAmount)}$")
-    logging.info(f"Solde final : {round(bt_wallet, 2)}$")
-    logging.info(f"Performance vs US Dollar : {round(bt_algo_percentage, 2)}%")
-    logging.info(f"Performance Buy and Hold : {round(bt_hold_percentage, 2)}%")
-    logging.info(f"Performance vs Buy and Hold : {round(bt_vs_hold_percentage, 2)}%")
-    logging.info(f"Nombre de trades négatifs : {bt_dt['tradeIs'].value_counts().get('Bad', 0)}")
-    logging.info(f"Nombre de trades positifs : {bt_dt['tradeIs'].value_counts().get('Good', 0)}")
-    logging.info(f"Trades positifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].mean(), 2)}%")
-    logging.info(f"Trades négatifs moyens : {round(bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].mean(), 2)}%")
-
-    if not bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].empty:
-        bt_id_best = bt_dt.loc[bt_dt['tradeIs'] == 'Good', 'resultat%'].idxmax()
-        logging.info(f"Meilleur trade : +{round(bt_dt.loc[bt_id_best, 'resultat%'], 2)}% le {bt_id_best}")
-
-    if not bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].empty:
-        bt_id_worst = bt_dt.loc[bt_dt['tradeIs'] == 'Bad', 'resultat%'].idxmin()
-        logging.info(f"Pire trade : {round(bt_dt.loc[bt_id_worst, 'resultat%'], 2)}% le {bt_id_worst}")
-
-    logging.info(f"Pire drawBack : {round(bt_dt['drawBack'].min() * 100, 2)}%")
-    logging.info(f"Total des frais : {round(bt_dt['frais'].sum(), 2)}$")
-    
-    bt_reasons = bt_dt['reason'].unique()
-    for r in bt_reasons:
-        count = bt_dt['reason'].value_counts().get(r, 0)
-        logging.info(f"Nombre de '{r}' : {count}")
-    
-    bt_dt[['wallet', 'price']].plot(subplots=True, figsize=(20, 10))
-    # plt.show()
-    logging.info('Backtest terminé')
-    logging.info(f"#############################################################")
-    return bt_dt
+    return analysis
 
 if __name__ == "__main__":
     # Exemple fictif de DataFrame
@@ -180,15 +75,19 @@ if __name__ == "__main__":
         'ema30': np.random.random(100) * 100,
         'ema50': np.random.random(100) * 100,
         'ema100': np.random.random(100) * 100,
-        'ema150': np.random.random(100) * 100,
-        'ema200': np.random.random(100) * 100,
         'rsi': np.random.random(100) * 100,
         'stochastic': np.random.random(100),
-        'stoch_signal': np.random.random(100)
+        'stoch_signal': np.random.random(100),
+        'adi': np.random.random(100) * 100,
+        'fear_and_greed': np.random.random(100) * 100,
+        'macd': np.random.random(100) * 100,
+        'signal': np.random.random(100) * 100,
+        'histogram': np.random.random(100) * 100
     }, index=dates)
 
     # Calcul des indicateurs supplémentaires si nécessaire
     data['chop'] = indic.get_chop(data['high'], data['low'], data['close'])
 
     # Exécution du backtest
-    backtest_result = backtest_strategy(10000, 0, data)
+    backtest_result = backtest_strategy(fiat_amount=10000, crypto_amount=0, data=data)
+    print(backtest_result)

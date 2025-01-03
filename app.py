@@ -29,7 +29,7 @@ def load_config():
 
 def save_config(config):
     with open(config_file, 'w') as file:
-        yaml.safe_dump(config, file, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(config, file)
 
 def convert_value(value):
     if value.lower() in ['true', 'false']:
@@ -59,18 +59,8 @@ def config():
                 value = request.form.get(key, config['trading'][key])
                 config['trading'][key] = convert_value(value)
         save_config(config)
-        return redirect(url_for('config'))
+        return redirect(url_for('index'))
     return render_template('config.html', config=config['trading'])
-
-@app.route('/bot_status', methods=['GET'])
-def bot_status():
-    global bot_process
-    if bot_process is None:
-        return jsonify({"status": "Bot is not running"})
-    elif bot_process.poll() is None:
-        return jsonify({"status": "Bot is running"})
-    else:
-        return jsonify({"status": "Bot is not running"})
 
 @app.route('/start_bot', methods=['POST'])
 def start_bot():
@@ -90,14 +80,24 @@ def start_bot():
 @app.route('/stop_bot', methods=['POST'])
 def stop_bot():
     global bot_process
-    # Remove and recreate the log file
-    if os.path.exists(bot_logfile):
-        os.remove(bot_logfile)
-    open(bot_logfile, 'w').close()
     if bot_process is not None:
         bot_process.terminate()
         bot_process = None
+        # Remove and recreate the log file
+        if os.path.exists(bot_logfile):
+            os.remove(bot_logfile)
+        open(bot_logfile, 'w').close()
         return jsonify({"status": "Bot stopped"})
+    else:
+        return jsonify({"status": "Bot is not running"})
+
+@app.route('/bot_status', methods=['GET'])
+def bot_status():
+    global bot_process
+    if bot_process is None:
+        return jsonify({"status": "Bot is not running"})
+    elif bot_process.poll() is None:
+        return jsonify({"status": "Bot is running"})
     else:
         return jsonify({"status": "Bot is not running"})
 
@@ -107,7 +107,7 @@ def logs():
         with open(flask_logfile, 'a'):
             pass
         with open(flask_logfile, 'r') as log_file:
-            logs = log_file.readlines()[-1000:]  # Read the last 10 lines of logs
+            logs = log_file.readlines()[-1000:]  # Lire les 1000 dernières lignes de logs
     except FileNotFoundError:
         logging.error(f"Log file not found: {flask_logfile}")
         logs = ["Log file not found."]
@@ -119,7 +119,7 @@ def bot_logs():
         with open(bot_logfile, 'a'):
             pass
         with open(bot_logfile, 'r') as log_file:
-            logs = log_file.readlines()[-1000:]  # Read the last 100 lines of logs
+            logs = log_file.readlines()[-1000:]  # Lire les 1000 dernières lignes de logs
     except FileNotFoundError:
         logging.error(f"Log file not found: {bot_logfile}")
         logs = ["Log file not found."]

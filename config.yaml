@@ -1,5 +1,5 @@
 trading:
-  backtest: false
+  backtest: true
   bench_mode: true
   buy_ready: true
   capital: 1000
@@ -14,6 +14,6 @@ trading:
     sl_level: 0.02
     tp1_amount: 1
     tp1_level: 0.1
-  risk_level: Mid
+  risk_level: Max
   sell_ready: true
   temps: 5

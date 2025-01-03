@@ -19,7 +19,20 @@
                             {% for sub_key, sub_value in value.items() %}
                                 <div class="form-group">
                                     <label for="{{ key }}_{{ sub_key }}">{{ sub_key }}</label>
-                                    <input type="text" class="form-control" id="{{ key }}_{{ sub_key }}" name="{{ key }}_{{ sub_key }}" value="{{ sub_value }}">
+                                    {% if sub_key == 'risk_level' %}
+                                        <select class="form-control" id="{{ key }}_{{ sub_key }}" name="{{ key }}_{{ sub_key }}">
+                                            <option value="Low" {% if sub_value == 'Low' %}selected{% endif %}>Low</option>
+                                            <option value="Mid" {% if sub_value == 'Mid' %}selected{% endif %}>Mid</option>
+                                            <option value="Max" {% if sub_value == 'Max' %}selected{% endif %}>Max</option>
+                                        </select>
+                                    {% elif sub_value is boolean %}
+                                        <select class="form-control" id="{{ key }}_{{ sub_key }}" name="{{ key }}_{{ sub_key }}">
+                                            <option value="True" {% if sub_value %}selected{% endif %}>True</option>
+                                            <option value="False" {% if not sub_value %}selected{% endif %}>False</option>
+                                        </select>
+                                    {% else %}
+                                        <input type="text" class="form-control" id="{{ key }}_{{ sub_key }}" name="{{ key }}_{{ sub_key }}" value="{{ sub_value }}">
+                                    {% endif %}
                                 </div>
                             {% endfor %}
                         </div>
@@ -27,7 +40,20 @@
                 {% else %}
                     <div class="form-group">
                         <label for="{{ key }}">{{ key }}</label>
-                        <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+                        {% if key == 'risk_level' %}
+                            <select class="form-control" id="{{ key }}" name="{{ key }}">
+                                <option value="Low" {% if value == 'Low' %}selected{% endif %}>Low</option>
+                                <option value="Mid" {% if value == 'Mid' %}selected{% endif %}>Mid</option>
+                                <option value="Max" {% if value == 'Max' %}selected{% endif %}>Max</option>
+                            </select>
+                        {% elif value is boolean %}
+                            <select class="form-control" id="{{ key }}" name="{{ key }}">
+                                <option value="True" {% if value %}selected{% endif %}>True</option>
+                                <option value="False" {% if not value %}selected{% endif %}>False</option>
+                            </select>
+                        {% else %}
+                            <input type="text" class="form-control" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+                        {% endif %}
                     </div>
                 {% endif %}
             {% endfor %}
