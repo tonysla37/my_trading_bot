@@ -1,16 +1,20 @@
 body {
-    background-color: #f8f9fa; /* Couleur de fond légère */
+    background-color: #f8f9fa; /* Light background color */
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
 }
 
 h1 {
-    color: #343a40; /* Couleur de texte sombre */
+    color: #343a40; /* Dark text color */
     font-weight: bold;
     text-align: center;
     margin-top: 20px;
 }
 
 .container {
-    max-width: 600px;
+    width: 100%;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
     background-color: #ffffff;
@@ -30,4 +34,47 @@ h1 {
 
 .btn-primary:hover {
     background-color: #0056b3;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+    transition: background-color 0.3s ease;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    transition: background-color 0.3s ease;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.mr-2 {
+    margin-right: 0.5rem;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem;
+}
+
+.mt-5 {
+    margin-top: 3rem;
+}
+
+pre {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    overflow: auto;
 }

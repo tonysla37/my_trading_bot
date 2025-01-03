@@ -1,76 +1,106 @@
-from flask import Flask, render_template, request, redirect, url_for
-import yaml
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 import os
-import threading
-import time
+import subprocess
 import logging
+import yaml
 
 app = Flask(__name__)
 
-# Chemin vers le fichier de configuration
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.yaml')
+# Paths to log files
+flask_logfile = os.path.join(os.path.dirname(__file__), 'flask.log')
+bot_logfile = os.path.join(os.path.dirname(__file__), 'trading_bot.log')
+config_file = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
-logfile = "flask.log"
-
-# Configurez la journalisation
+# Configure logging for Flask
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(logfile),
+        logging.FileHandler(flask_logfile),
         logging.StreamHandler()
     ]
 )
 
-# Charger la configuration
-def load_config(file_path=CONFIG_PATH):
-    with open(file_path, 'r') as file:
+bot_process = None
+
+def load_config():
+    with open(config_file, 'r') as file:
         return yaml.safe_load(file)
 
-# Sauvegarder la configuration
-def save_config(config, file_path=CONFIG_PATH):
-    with open(file_path, 'w') as file:
-        yaml.dump(config, file)
+def save_config(config):
+    with open(config_file, 'w') as file:
+        yaml.safe_dump(config, file)
 
-# Page principale avec des liens vers les dashboards et autres pages
 @app.route('/')
 def index():
-    # Exemple de liens vers Grafana ou InfluxDB
-    dashboards = [
-        {"name": "Trading Dashboard", "url": "https://musashi37.synology.me:3000/"},
-        {"name": "Performance Metrics", "url": "https://musashi37.synology.me:8086/orgs/57304d3de321d62f/data-explorer?fluxScriptEditor"}
-    ]
-    return render_template('index.html', dashboards=dashboards)
+    return render_template('index.html')
 
-# Page de configuration
 @app.route('/config', methods=['GET', 'POST'])
 def config():
+    config = load_config()
     if request.method == 'POST':
-        # Mettre à jour la configuration avec les données du formulaire
-        config = load_config()
         for key in config['trading']:
             config['trading'][key] = request.form.get(key, config['trading'][key])
         save_config(config)
         return redirect(url_for('config'))
-    
-    # Charger la configuration actuelle pour affichage
-    config = load_config()
     return render_template('config.html', config=config['trading'])
 
-# Page des logs
+@app.route('/start_bot', methods=['POST'])
+def start_bot():
+    global bot_process
+    if bot_process is None:
+        # Remove and recreate the log file
+        if os.path.exists(bot_logfile):
+            os.remove(bot_logfile)
+        open(bot_logfile, 'w').close()
+
+        bot_directory = os.path.dirname(os.path.abspath(__file__))
+        bot_process = subprocess.Popen(['python', 'trading/trading_bot.py'], cwd=bot_directory)
+        return jsonify({"status": "Bot started"})
+    else:
+        return jsonify({"status": "Bot is already running"})
+
+@app.route('/stop_bot', methods=['POST'])
+def stop_bot():
+    global bot_process
+    if bot_process is not None:
+        bot_process.terminate()
+        bot_process = None
+        # Remove and recreate the log file
+        if os.path.exists(bot_logfile):
+            os.remove(bot_logfile)
+        open(bot_logfile, 'w').close()
+        return jsonify({"status": "Bot stopped"})
+    else:
+        return jsonify({"status": "Bot is not running"})
+
 @app.route('/logs')
 def logs():
-    botlogfile = "trading_bot.log" 
-    with open(botlogfile, 'r') as log_file:
-        logs = log_file.readlines()[-20:]  # Lire les 20 dernières lignes de logs
-    return render_template('logs.html', logs=logs)
+    try:
+        with open(flask_logfile, 'a'):
+            pass
+        with open(flask_logfile, 'r') as log_file:
+            logs = log_file.readlines()[-20:]  # Read the last 20 lines of logs
+    except FileNotFoundError:
+        logging.error(f"Log file not found: {flask_logfile}")
+        logs = ["Log file not found."]
+    return ''.join(logs)
+
+@app.route('/bot_logs')
+def bot_logs():
+    try:
+        with open(bot_logfile, 'a'):
+            pass
+        with open(bot_logfile, 'r') as log_file:
+            logs = log_file.readlines()[-20:]  # Read the last 20 lines of logs
+    except FileNotFoundError:
+        logging.error(f"Log file not found: {bot_logfile}")
+        logs = ["Log file not found."]
+    return ''.join(logs)
+
+@app.route('/logs_page')
+def logs_page():
+    return render_template('logs.html')
 
 if __name__ == '__main__':
-    from trading import run_trading_bot
-    logging.info("Starting trading bot...")
-    try:
-        run_trading_bot()
-    except Exception as e:
-        logging.error(f"Error running trading bot: {e}")
-
     app.run(host='0.0.0.0', port=7777)

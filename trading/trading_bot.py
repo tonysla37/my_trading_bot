@@ -1,9 +1,12 @@
 import os
-import time
+import sys
 import logging
-import pandas as pd
-import time
 import yaml
+import time
+import pandas as pd
+
+# Add the parent directory of 'trading' to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from binance.client import Client
 from datetime import datetime, timedelta
@@ -34,10 +37,7 @@ logging.basicConfig(
 )
 
 # Chemin vers le fichier de configuration à la racine du projet
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-CONFIG_PATH = os.path.join(BASE_DIR, 'config.yaml')
-
-# print(f"Looking for config.yaml at: {CONFIG_PATH}")
+CONFIG_PATH = os.path.join(project_root, 'config.yaml')
 
 # Charger le fichier de configuration YAML
 def load_config(file_path=CONFIG_PATH):

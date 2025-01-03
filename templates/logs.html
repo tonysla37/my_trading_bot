@@ -2,52 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Trading Bot Logs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Logs</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .log-card {
-            margin-bottom: 15px;
-            padding: 10px;
-            border-left: 5px solid #007bff;
-            background-color: #f8f9fa;
-        }
-        .log-date {
-            color: #6c757d; /* Gris pour la date */
-            font-weight: bold;
-        }
-        .log-type {
-            color: #007bff; /* Bleu pour le type de log */
-            font-weight: bold;
-        }
-        .log-data {
-            color: #212529; /* Noir pour les données */
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script>
-        function refreshPage() {
-            location.reload();
+        function refreshLogs() {
+            fetch('/logs')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('log-container').innerText = data;
+                });
         }
+
+        setInterval(refreshLogs, 1000); // Refresh every 1 second
     </script>
 </head>
 <body>
     <div class="container mt-5">
-        <h1>Logs</h1>
-        <div class="mt-3">
-            <button class="btn btn-primary" onclick="refreshPage()">Refresh</button>
+        <h1>Application Logs</h1>
+        <div class="d-flex mb-4">
             <a href="{{ url_for('index') }}" class="btn btn-secondary mr-2">Back to Dashboard</a>
+            <button onclick="refreshLogs()" class="btn btn-info">Refresh Logs</button>
         </div>
-        <div class="log-container mt-4">
-            {% for log in logs %}
-            <div class="card log-card">
-                <div class="card-body">
-                    {% set parts = log.split(' ', 3) %}
-                    <span class="log-date">{{ parts[0] }} {{ parts[1] }}</span>
-                    <span class="log-type">{{ parts[2] }}</span>
-                    <p class="log-data">{{ parts[3] }}</p>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+        <pre id="log-container"></pre>
     </div>
 </body>
 </html>
