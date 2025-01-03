@@ -164,7 +164,7 @@ def backtest_strategy(fiatAmount, cryptoAmount, values):
         logging.info(f"Nombre de '{r}' : {count}")
     
     bt_dt[['wallet', 'price']].plot(subplots=True, figsize=(20, 10))
-    plt.show()
+    # plt.show()
     logging.info('Backtest terminé')
     logging.info(f"#############################################################")
     return bt_dt

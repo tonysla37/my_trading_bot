@@ -70,6 +70,7 @@ today_format = today.strftime('%Y-%m-%d')
 
 # perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
 risk = info.define_risk(risk_level)
+logging.info(f"Niveau de risque défini pour {risk_level}: {risk}")
 
 # Initialiser la variable pour suivre l'état du trade
 monthly_trade_in_progress = False

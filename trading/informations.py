@@ -102,7 +102,6 @@ def prepare_data(df):
 def define_risk(risk_level):
     risques = {"Low": 0.01, "Mid": 0.02, "Max": 0.03}
     risk_value = risques.get(risk_level, 0.01)
-    logging.info(f"Niveau de risque défini pour {risk_level}: {risk_value}")
     return risk_value
 
 def get_balance(client, coin):
