@@ -91,7 +91,7 @@ risk = info.define_risk(risk_level)
 def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, start):
     # Your existing trading logic goes here
     # Initialisation des clients API
-    if bench_mode:
+    if bench_mode == True:
         client = Client()  # Client sans clés API pour le backtest
         fiat_amount = cur_fiat_amount
         crypto_amount = cur_crypto_amount
@@ -252,14 +252,6 @@ def run_trading(client, time_interval, data, analysis, market_trend, score, trad
         # Exécuter le backtest
         # logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        # Exemple fictif de DataFrame
-        dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
-        data = pd.DataFrame({
-            'close': np.random.random(100) * 100,
-            'high': np.random.random(100) * 100,
-            'low': np.random.random(100) * 100,
-            'volume': np.random.random(100) * 100
-        }, index=dates)
         result = bt.backtest_strategy(fiat_amount=analysis['fiat_amount'], crypto_amount=analysis['crypto_amount'], data=data, config=config, time_interval=time_interval, risk=risk, market_trend=market_trend, score=score)
         pass
     else:

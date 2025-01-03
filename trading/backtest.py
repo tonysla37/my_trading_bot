@@ -8,7 +8,6 @@ import os
 import trading.indicators as indic
 import trading.trade as trade
 import trading.influx_utils as idb
-import trading.trading_bot as tb
 
 from datetime import datetime, timedelta
 
@@ -17,6 +16,24 @@ def load_config():
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
+
+def run_analysis(data, fiat_amount, crypto_amount, risk, protection):
+    # Vérifier la présence des clés nécessaires et gérer les valeurs manquantes
+    analysis = {
+        'adi': indic.analyse_adi(data.get('adi', None), data.get('prev_adi', None)),
+        'bollinger': indic.analyse_bollinger(data.get('high', None), data.get('low', None), data.get('average', None), data.get('close', None)),
+        'ema': indic.analyse_ema(data.get('emas', None)),
+        'fear_and_greed': indic.analyse_fear_and_greed(data.get('index_value', None)),
+        'macd': indic.analyse_macd(data.get('macd', None), data.get('signal', None), data.get('histogram', None), data.get('prev_macd', None), data.get('prev_signal', None)),
+        'rsi': indic.analyse_rsi(data.get('rsi', None), data.get('prev_rsi', None)),
+        'sma': indic.analyse_sma(data.get('smas', None)),
+        'stoch_rsi': indic.analyse_stoch_rsi(data.get('blue', None), data.get('orange', None), data.get('prev_blue', None), data.get('prev_orange', None)),
+        'support_resistance': indic.analyse_support_resistance(data.get('price', None), data.get('support', None), data.get('resistance', None)),
+        'volume': indic.analyse_volume(data),
+        'fibonacci_retracement': indic.calculate_fibonacci_retracement(data),
+        'google_trend': indic.define_googletrend(data.get('crypto_term', None))
+    }
+    return analysis
 
 def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, risk, market_trend, score):
     trade_in_progress = False
@@ -27,23 +44,37 @@ def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, r
     my_truncate = config['trading']['my_truncate']
     pair_symbol = config['trading']['pair_symbol']
 
-    # Calculer les indicateurs techniques et analyser la tendance du marché
-    analysis = tb.run_analysis(data=data, fiat_amount=fiat_amount, crypto_amount=crypto_amount, risk=risk, protection=protection)
-    # Exécuter les actions de trading
-    result = trade.trade_action(
-        bench_mode=bench_mode,
-        time_interval=time_interval,
-        pair_symbol=pair_symbol,
-        values=data,
-        buy_ready=buy_ready,
-        sell_ready=sell_ready,
-        my_truncate=my_truncate,
-        protection=protection,
-        analysis=analysis,
-        market_trend=market_trend,
-        score=score,
-        trade_in_progress=trade_in_progress
-    )
+    for i in range(1, len(data)):
+        # Préparer les données pour cette itération
+        current_data = data.iloc[:i+1]
+        logging.info(f"Current data: {current_data}")
+        
+        # Vérifier la présence des clés nécessaires
+        required_keys = ['adi', 'prev_adi', 'high', 'low', 'average', 'close', 'emas', 'index_value', 'macd', 'signal', 'histogram', 'prev_macd', 'prev_signal', 'rsi', 'prev_rsi', 'smas', 'blue', 'orange', 'prev_blue', 'prev_orange', 'price', 'support', 'resistance', 'crypto_term']
+        for key in required_keys:
+            if key not in current_data.columns:
+                logging.warning(f"Missing key in data: {key}")
+                current_data[key] = None
+        
+        # Calculer les indicateurs techniques et analyser la tendance du marché
+        analysis = run_analysis(current_data, fiat_amount=fiat_amount, crypto_amount=crypto_amount, risk=risk, protection=protection)
+        logging.info(f"Analysis: {analysis}")
+        
+        # Exécuter les actions de trading
+        result = trade.trade_action(
+            bench_mode=bench_mode,
+            time_interval=time_interval,
+            pair_symbol=pair_symbol,
+            values=current_data,
+            buy_ready=buy_ready,
+            sell_ready=sell_ready,
+            my_truncate=my_truncate,
+            protection=protection,
+            analysis=analysis,
+            market_trend=market_trend,
+            score=score,
+            trade_in_progress=trade_in_progress
+        )
 
     return result
 
