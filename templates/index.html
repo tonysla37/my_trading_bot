@@ -6,29 +6,72 @@
     <title>Trading Bot Control Panel</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .refresh-interval-container {
+            display: flex;
+            align-items: center;
+        }
+        .refresh-interval-container label {
+            margin-right: 10px;
+        }
+        .refresh-interval-container select {
+            width: auto;
+            padding: 5px;
+            font-size: 14px;
+        }
+        .ml-auto {
+            margin-left: auto;
+        }
+        .status-container {
+            display: flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
         <h1>Trading Bot Control Panel</h1>
         <div class="d-flex mb-4">
-            <a href="{{ url_for('config') }}" class="btn btn-primary mr-2">Configuration</a>
-            <a href="{{ url_for('logs_page') }}" class="btn btn-secondary mr-2">Logs</a>
-        </div>
-        <div class="d-flex mb-4">
             <button onclick="startBot()" class="btn btn-success mr-2">Start Bot</button>
             <button onclick="stopBot()" class="btn btn-danger mr-2">Stop Bot</button>
-            <button onclick="refreshBotLogs()" class="btn btn-info">Refresh Logs</button>
+            <div class="status-container">
+                <span id="status">Status: Checking...</span>
+            </div>
+            <div class="ml-auto d-flex">
+                <button onclick="refreshBotLogs()" class="btn btn-info mr-2">Refresh Logs</button>
+                <div class="refresh-interval-container">
+                    <label for="refresh-interval">Refresh Interval:</label>
+                    <select id="refresh-interval" class="form-control">
+                        <option value="1000">1 sec</option>
+                        <option value="5000">5 sec</option>
+                        <option value="10000">10 sec</option>
+                    </select>
+                </div>
+            </div>
         </div>
-        <p id="status"></p>
         <h2>Logs</h2>
         <pre id="log-container"></pre>
+        <div class="d-flex mt-4">
+            <a href="{{ url_for('config') }}" class="btn btn-primary mr-2">Configuration</a>
+            <a href="{{ url_for('logs_page') }}" class="btn btn-secondary">Logs Applicatifs</a>
+        </div>
     </div>
     <script>
+        let refreshInterval = 1000;
+        let refreshIntervalId;
+
+        document.getElementById('refresh-interval').addEventListener('change', function() {
+            refreshInterval = parseInt(this.value);
+            clearInterval(refreshIntervalId);
+            refreshIntervalId = setInterval(refreshBotLogs, refreshInterval);
+        });
+
         function startBot() {
             fetch('/start_bot', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('status').innerText = data.status;
+                    document.getElementById('status').innerText = `Status: ${data.status}`;
                 });
         }
 
@@ -36,7 +79,7 @@
             fetch('/stop_bot', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('status').innerText = data.status;
+                    document.getElementById('status').innerText = `Status: ${data.status}`;
                 });
         }
 
@@ -50,7 +93,16 @@
                 });
         }
 
-        setInterval(refreshBotLogs, 1000); // Refresh every 1 second
+        function checkBotStatus() {
+            fetch('/bot_status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('status').innerText = `Status: ${data.status}`;
+                });
+        }
+
+        refreshIntervalId = setInterval(refreshBotLogs, refreshInterval); // Initial refresh interval
+        checkBotStatus(); // Check bot status on page load
     </script>
 </body>
 </html>

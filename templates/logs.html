@@ -6,17 +6,54 @@
     <title>Application Logs</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .refresh-interval-container {
+            display: flex;
+            align-items: center;
+        }
+        .refresh-interval-container label {
+            margin-right: 10px;
+        }
+        .refresh-interval-container select {
+            width: auto;
+            padding: 5px;
+            font-size: 14px;
+        }
+        .ml-auto {
+            margin-left: auto;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
         <h1>Application Logs</h1>
         <div class="d-flex mb-4">
             <a href="{{ url_for('index') }}" class="btn btn-secondary mr-2">Back to Dashboard</a>
-            <button onclick="refreshLogs()" class="btn btn-info">Refresh Logs</button>
+            <div class="ml-auto d-flex">
+                <button onclick="refreshLogs()" class="btn btn-info mr-2">Refresh Logs</button>
+                <div class="refresh-interval-container">
+                    <label for="refresh-interval">Refresh Interval:</label>
+                    <select id="refresh-interval" class="form-control">
+                        <option value="1000">1 sec</option>
+                        <option value="5000">5 sec</option>
+                        <option value="10000">10 sec</option>
+                    </select>
+                </div>
+            </div>
         </div>
+        <h2>Logs</h2>
         <pre id="log-container"></pre>
     </div>
     <script>
+        let refreshInterval = 1000;
+        let refreshIntervalId;
+
+        document.getElementById('refresh-interval').addEventListener('change', function() {
+            refreshInterval = parseInt(this.value);
+            clearInterval(refreshIntervalId);
+            refreshIntervalId = setInterval(refreshLogs, refreshInterval);
+        });
+
         function refreshLogs() {
             fetch('/logs')
                 .then(response => response.text())
@@ -27,7 +64,7 @@
                 });
         }
 
-        setInterval(refreshLogs, 1000); // Refresh every 1 second
+        refreshIntervalId = setInterval(refreshLogs, refreshInterval); // Initial refresh interval
     </script>
 </body>
 </html>

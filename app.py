@@ -62,6 +62,16 @@ def config():
         return redirect(url_for('config'))
     return render_template('config.html', config=config['trading'])
 
+@app.route('/bot_status', methods=['GET'])
+def bot_status():
+    global bot_process
+    if bot_process is None:
+        return jsonify({"status": "Bot is not running"})
+    elif bot_process.poll() is None:
+        return jsonify({"status": "Bot is running"})
+    else:
+        return jsonify({"status": "Bot is not running"})
+
 @app.route('/start_bot', methods=['POST'])
 def start_bot():
     global bot_process
