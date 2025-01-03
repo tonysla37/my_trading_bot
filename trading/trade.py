@@ -51,6 +51,9 @@ async def send_webhook_message(webhook_url, content):
             if response.status != 204:
                 logging.error(f"Failed to send message: {response.status} - {await response.text()}")
 
+def log_trade_action(msg):
+    logging.info(f'<span class="highlight">{msg}</span>')
+
 def klines_to_dataframe(klines):
     return pd.DataFrame(klines, columns=[
         'timestamp', 'open', 'high', 'low', 'close', 'volume',
@@ -252,9 +255,9 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             analysis['crypto_amount'] = crypto_after_trade
             total_portfolio_value = fiat_after_trade + (crypto_after_trade * price)
 
-            logging.info(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
-            logging.info(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
-            logging.info(f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}")
+            log_trade_action(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
+            log_trade_action(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
+            log_trade_action(f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}")
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
             asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))

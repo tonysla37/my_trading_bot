@@ -29,7 +29,18 @@ def load_config():
 
 def save_config(config):
     with open(config_file, 'w') as file:
-        yaml.safe_dump(config, file)
+        yaml.safe_dump(config, file, default_flow_style=False, sort_keys=False)
+
+def convert_value(value):
+    if value.lower() in ['true', 'false']:
+        return value.lower() == 'true'
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            return float(value)
+        except ValueError:
+            return value
 
 @app.route('/')
 def index():
@@ -40,7 +51,13 @@ def config():
     config = load_config()
     if request.method == 'POST':
         for key in config['trading']:
-            config['trading'][key] = request.form.get(key, config['trading'][key])
+            if isinstance(config['trading'][key], dict):
+                for sub_key in config['trading'][key]:
+                    value = request.form.get(f"{key}_{sub_key}", config['trading'][key][sub_key])
+                    config['trading'][key][sub_key] = convert_value(value)
+            else:
+                value = request.form.get(key, config['trading'][key])
+                config['trading'][key] = convert_value(value)
         save_config(config)
         return redirect(url_for('config'))
     return render_template('config.html', config=config['trading'])
@@ -63,13 +80,13 @@ def start_bot():
 @app.route('/stop_bot', methods=['POST'])
 def stop_bot():
     global bot_process
+    # Remove and recreate the log file
+    if os.path.exists(bot_logfile):
+        os.remove(bot_logfile)
+    open(bot_logfile, 'w').close()
     if bot_process is not None:
         bot_process.terminate()
         bot_process = None
-        # Remove and recreate the log file
-        if os.path.exists(bot_logfile):
-            os.remove(bot_logfile)
-        open(bot_logfile, 'w').close()
         return jsonify({"status": "Bot stopped"})
     else:
         return jsonify({"status": "Bot is not running"})

@@ -68,10 +68,6 @@ dca = trading_config['dca']
 today = datetime.now()
 today_format = today.strftime('%Y-%m-%d')
 
-# perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
-risk = info.define_risk(risk_level)
-logging.info(f"Niveau de risque défini pour {risk_level}: {risk}")
-
 # Initialiser la variable pour suivre l'état du trade
 monthly_trade_in_progress = False
 weekly_trade_in_progress = False
@@ -325,6 +321,10 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
 
 def main():
     logging.info("Trading bot started.")
+
+    # perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
+    risk = info.define_risk(risk_level)
+    logging.info(f"Niveau de risque défini pour {risk_level}: {risk}")
 
     monthly_fiat_amount = 10000
     monthly_crypto_amount = 1

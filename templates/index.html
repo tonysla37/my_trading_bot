@@ -6,16 +6,23 @@
     <title>Trading Bot Control Panel</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <style>
-        #log-container {
-            height: 500px; /* Ajustez la hauteur selon vos besoins */
-            overflow-y: scroll;
-            background-color: #f8f9fa;
-            padding: 10px;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-        }
-    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Trading Bot Control Panel</h1>
+        <div class="d-flex mb-4">
+            <a href="{{ url_for('config') }}" class="btn btn-primary mr-2">Configuration</a>
+            <a href="{{ url_for('logs_page') }}" class="btn btn-secondary mr-2">Logs</a>
+        </div>
+        <div class="d-flex mb-4">
+            <button onclick="startBot()" class="btn btn-success mr-2">Start Bot</button>
+            <button onclick="stopBot()" class="btn btn-danger mr-2">Stop Bot</button>
+            <button onclick="refreshBotLogs()" class="btn btn-info">Refresh Logs</button>
+        </div>
+        <p id="status"></p>
+        <h2>Logs</h2>
+        <pre id="log-container"></pre>
+    </div>
     <script>
         function startBot() {
             fetch('/start_bot', { method: 'POST' })
@@ -37,28 +44,13 @@
             fetch('/bot_logs')
                 .then(response => response.text())
                 .then(data => {
-                    document.getElementById('log-container').innerText = data;
+                    const logContainer = document.getElementById('log-container');
+                    logContainer.innerHTML = data; // Use innerHTML to interpret HTML
+                    logContainer.scrollTop = logContainer.scrollHeight; // Scroll to bottom
                 });
         }
 
         setInterval(refreshBotLogs, 1000); // Refresh every 1 second
     </script>
-</head>
-<body>
-    <div class="container mt-5">
-        <h1>Trading Bot Control Panel</h1>
-        <div class="d-flex mb-4">
-            <a href="{{ url_for('config') }}" class="btn btn-primary mr-2">Configuration</a>
-            <a href="{{ url_for('logs_page') }}" class="btn btn-secondary mr-2">Logs</a>
-        </div>
-        <div class="d-flex mb-4">
-            <button onclick="startBot()" class="btn btn-success mr-2">Start Bot</button>
-            <button onclick="stopBot()" class="btn btn-danger mr-2">Stop Bot</button>
-            <button onclick="refreshBotLogs()" class="btn btn-info">Refresh Logs</button>
-        </div>
-        <p id="status"></p>
-        <h2>Logs</h2>
-        <pre id="log-container"></pre>
-    </div>
 </body>
 </html>

@@ -10,16 +10,21 @@ h1 {
     font-weight: bold;
     text-align: center;
     margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 .container {
     width: 100%;
-    max-width: 1200px;
+    max-width: 1200px; /* Ajustez la largeur maximale selon vos besoins */
     margin: 0 auto;
     padding: 20px;
     background-color: #ffffff;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
+}
+
+.form-group {
+    margin-bottom: 1rem;
 }
 
 .form-group label {
@@ -77,4 +82,30 @@ pre {
     padding: 10px;
     border-radius: 5px;
     overflow: auto;
+}
+
+.sub-key {
+    margin-left: 20px;
+}
+
+label {
+    font-weight: bold;
+}
+
+input.form-control {
+    margin-top: 5px;
+}
+
+#log-container {
+    height: 500px; /* Ajustez la hauteur selon vos besoins */
+    overflow-y: scroll;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+}
+
+.highlight {
+    color: red;
+    font-weight: bold;
 }
