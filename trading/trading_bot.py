@@ -1,3 +1,9 @@
+# __all__ liste les fonctions que vous souhaitez exposer
+__all__ = [
+    'run_analysis'
+]
+
+import numpy as np
 import os
 import sys
 import logging
@@ -246,7 +252,15 @@ def run_trading(client, time_interval, data, analysis, market_trend, score, trad
         # Exécuter le backtest
         # logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        result = bt.backtest_strategy(fiat_amount=analysis['fiat_amount'], crypto_amount=analysis['crypto_amount'], data=data, config=config, time_interval=time_interval)
+        # Exemple fictif de DataFrame
+        dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
+        data = pd.DataFrame({
+            'close': np.random.random(100) * 100,
+            'high': np.random.random(100) * 100,
+            'low': np.random.random(100) * 100,
+            'volume': np.random.random(100) * 100
+        }, index=dates)
+        result = bt.backtest_strategy(fiat_amount=analysis['fiat_amount'], crypto_amount=analysis['crypto_amount'], data=data, config=config, time_interval=time_interval, risk=risk, market_trend=market_trend, score=score)
         pass
     else:
         # Exécuter les actions de trading

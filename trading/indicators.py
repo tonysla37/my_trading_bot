@@ -306,8 +306,8 @@ def analyse_support_resistance(price, support, resistance):
 
 def analyse_volume(data, volume_column='volume', short_window=5, long_window=14):
     """Analyse le volume pour déterminer si la tendance est bullish ou bearish et détecter des activités de baleines."""
-    data['volume_short_ma'] = data[volume_column].rolling(window=short_window).mean()
-    data['volume_long_ma'] = data[volume_column].rolling(window=long_window).mean()
+    data.loc[:, 'volume_short_ma'] = data[volume_column].rolling(window=short_window).mean()
+    data.loc[:, 'volume_long_ma'] = data[volume_column].rolling(window=long_window).mean()
     
     current_volume = data[volume_column].iloc[-1]  # Valeur actuelle de volume
     current_long_ma = data['volume_long_ma'].iloc[-1]   # Moyenne mobile longue

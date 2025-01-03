@@ -8,6 +8,7 @@ import os
 import trading.indicators as indic
 import trading.trade as trade
 import trading.influx_utils as idb
+import trading.trading_bot as tb
 
 from datetime import datetime, timedelta
 
@@ -17,55 +18,34 @@ def load_config():
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
 
-def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval):
+def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, risk, market_trend, score):
     trade_in_progress = False
-    buy_ready = True
-    sell_ready = False
+    buy_ready = config['trading']['buy_ready']
+    sell_ready = config['trading']['sell_ready']
     bench_mode = True
     protection = config['trading']['protection']
     my_truncate = config['trading']['my_truncate']
     pair_symbol = config['trading']['pair_symbol']
-    analysis = {
-        "fiat_amount": fiat_amount,
-        "crypto_amount": crypto_amount
-    }
 
-    for i in range(1, len(data)):
-        # Préparer les données pour cette itération
-        current_data = data.iloc[:i+1]
+    # Calculer les indicateurs techniques et analyser la tendance du marché
+    analysis = tb.run_analysis(data=data, fiat_amount=fiat_amount, crypto_amount=crypto_amount, risk=risk, protection=protection)
+    # Exécuter les actions de trading
+    result = trade.trade_action(
+        bench_mode=bench_mode,
+        time_interval=time_interval,
+        pair_symbol=pair_symbol,
+        values=data,
+        buy_ready=buy_ready,
+        sell_ready=sell_ready,
+        my_truncate=my_truncate,
+        protection=protection,
+        analysis=analysis,
+        market_trend=market_trend,
+        score=score,
+        trade_in_progress=trade_in_progress
+    )
 
-        # Calculer les indicateurs techniques
-        indicators = {
-            "adi": indic.analyse_adi(current_data['adi'].iloc[-1], current_data['adi'].iloc[-2]),
-            "bollinger": indic.analyse_bollinger(current_data['high'].iloc[-1], current_data['low'].iloc[-1], current_data['close'].rolling(window=20).mean().iloc[-1], current_data['close'].iloc[-1]),
-            "ema": indic.analyse_ema([current_data['ema7'].iloc[-1], current_data['ema30'].iloc[-1], current_data['ema50'].iloc[-1], current_data['ema100'].iloc[-1]]),
-            "fear_and_greed": indic.analyse_fear_and_greed(current_data['fear_and_greed'].iloc[-1]),
-            "macd": indic.analyse_macd(current_data['macd'].iloc[-1], current_data['signal'].iloc[-1], current_data['histogram'].iloc[-1], current_data['macd'].iloc[-2], current_data['signal'].iloc[-2]),
-            "rsi": indic.analyse_rsi(current_data['rsi'].iloc[-1], current_data['rsi'].iloc[-2]),
-            "stoch_rsi": indic.analyse_stoch_rsi(current_data['stochastic'].iloc[-1], current_data['stoch_signal'].iloc[-1], current_data['stochastic'].iloc[-2], current_data['stoch_signal'].iloc[-2]),
-            "volume": indic.analyse_volume(current_data)
-        }
-
-        # Analyser la tendance du marché
-        market_trend, score = trade.analyze_market_trend(indicators)
-
-        # Exécuter les actions de trading
-        trade_in_progress = trade.trade_action(
-            bench_mode=bench_mode,
-            time_interval=time_interval,
-            pair_symbol=pair_symbol,
-            values=current_data,
-            buy_ready=buy_ready,
-            sell_ready=sell_ready,
-            my_truncate=my_truncate,
-            protection=protection,
-            analysis=analysis,
-            market_trend=market_trend,
-            score=score,
-            trade_in_progress=trade_in_progress
-        )
-
-    return analysis
+    return result
 
 if __name__ == "__main__":
     # Charger les configurations
@@ -81,10 +61,10 @@ if __name__ == "__main__":
     }, index=dates)
 
     # Calcul des EMA
-    data['ema7'] = data['close'].ewm(span=7, adjust=False).mean()
-    data['ema30'] = data['close'].ewm(span=30, adjust=False).mean()
+    data['ema5'] = data['close'].ewm(span=5, adjust=False).mean()
+    data['ema10'] = data['close'].ewm(span=10, adjust=False).mean()
+    data['ema20'] = data['close'].ewm(span=20, adjust=False).mean()
     data['ema50'] = data['close'].ewm(span=50, adjust=False).mean()
-    data['ema100'] = data['close'].ewm(span=100, adjust=False).mean()
 
     # Calcul des autres indicateurs nécessaires
     data['rsi'] = ta.momentum.rsi(data['close'], window=14)
@@ -99,6 +79,13 @@ if __name__ == "__main__":
     # Calcul des indicateurs supplémentaires si nécessaire
     data['chop'] = indic.get_chop(data['high'], data['low'], data['close'])
 
+    # Vérifier que toutes les colonnes nécessaires sont présentes
+    required_columns = ['adi', 'high', 'low', 'close', 'ema5', 'ema10', 'ema20', 'ema50', 'fear_and_greed', 'macd', 'signal', 'histogram', 'rsi', 'stochastic', 'stoch_signal']
+    for col in required_columns:
+        if col not in data.columns:
+            logging.error(f"Missing column: {col}")
+            exit(1)
+
     # Exécution du backtest
-    backtest_result = backtest_strategy(fiat_amount=10000, crypto_amount=0, data=data, config=config, time_interval='1d')
+    backtest_result = backtest_strategy(fiat_amount=10000, crypto_amount=0, data=data, config=config, time_interval='1d', risk=0.02, market_trend='bull', score=0.5)
     print(backtest_result)
