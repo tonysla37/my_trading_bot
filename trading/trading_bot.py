@@ -57,7 +57,7 @@ protection = trading_config['protection']
 buy_ready = trading_config['buy_ready']
 sell_ready = trading_config['sell_ready']
 bench_mode = trading_config['bench_mode']
-backtest = trading_config['backtest']
+backtest = bool(trading_config['backtest'])
 risk_level = trading_config['risk_level']
 capital = trading_config['capital']
 cible = trading_config['cible']
@@ -104,7 +104,7 @@ def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, star
     data = info.prepare_data(data)
     return client, data, fiat_amount, crypto_amount
 
-def run_analysis(data, fiat_amount, crypto_amount):
+def run_analysis(data, fiat_amount, crypto_amount, protection=protection):
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
 
@@ -181,7 +181,21 @@ def run_analysis(data, fiat_amount, crypto_amount):
     actual_price = data['close'].iloc[-1]
     trade_amount = (float(fiat_amount) * risk) / actual_price
     min_token = 5 / actual_price
-    position = (float(fiat_amount) * risk) / protection["sl_level"]
+    # Vérifiez que protection est un dictionnaire
+    if isinstance(protection, str):
+        try:
+            protection = eval(protection)
+        except Exception as e:
+            logging.error(f"Failed to convert protection to dictionary: {e}")
+            protection = {}
+
+    try:
+        sl_level = float(protection["sl_level"])
+    except (KeyError, ValueError) as e:
+        logging.error(f"Invalid stop-loss level: {e}")
+        return
+
+    position = (float(fiat_amount) * risk) / sl_level
 
     # Afficher les informations pertinentes
     # logging.info(f"#############################################################")
@@ -226,11 +240,13 @@ def run_analysis(data, fiat_amount, crypto_amount):
     return analysis
 
 def run_trading(client, time_interval, data, analysis, market_trend, score, trade_in_progress):
-    if backtest:
+    # logging.info(f"{backtest}")
+    # attention : a voir si cela fonctionne
+    if backtest == True:
         # Exécuter le backtest
         # logging.info(f"#############################################################")
         logging.info("Début du backtest")
-        result = bt.backtest_strategy(analysis.fiat_amount, analysis.crypto_amount, data)
+        result = bt.backtest_strategy(fiatAmount=analysis['fiat_amount'], cryptoAmount=analysis['crypto_amount'], values=data)
         pass
     else:
         # Exécuter les actions de trading

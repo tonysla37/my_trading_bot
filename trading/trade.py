@@ -203,6 +203,11 @@ def place_order(order_type, pair, volume, price=None):
 
 # Fonction principale de trading
 def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell_ready, my_truncate, protection, analysis, market_trend, score, trade_in_progress):
+    # Assurez-vous que 'analysis' est un dictionnaire et non une chaîne de caractères
+    if not isinstance(analysis, dict):
+        logging.error(f"Expected 'analysis' to be a dictionary, but got {type(analysis)}")
+        return
+
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     # Journalisation des indicateurs

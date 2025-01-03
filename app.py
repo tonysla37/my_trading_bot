@@ -80,7 +80,7 @@ def logs():
         with open(flask_logfile, 'a'):
             pass
         with open(flask_logfile, 'r') as log_file:
-            logs = log_file.readlines()[-20:]  # Read the last 20 lines of logs
+            logs = log_file.readlines()[-1000:]  # Read the last 10 lines of logs
     except FileNotFoundError:
         logging.error(f"Log file not found: {flask_logfile}")
         logs = ["Log file not found."]
@@ -92,7 +92,7 @@ def bot_logs():
         with open(bot_logfile, 'a'):
             pass
         with open(bot_logfile, 'r') as log_file:
-            logs = log_file.readlines()[-20:]  # Read the last 20 lines of logs
+            logs = log_file.readlines()[-1000:]  # Read the last 100 lines of logs
     except FileNotFoundError:
         logging.error(f"Log file not found: {bot_logfile}")
         logs = ["Log file not found."]

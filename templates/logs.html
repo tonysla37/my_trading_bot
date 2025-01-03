@@ -6,6 +6,16 @@
     <title>Application Logs</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        #log-container {
+            height: 500px; /* Ajustez la hauteur selon vos besoins */
+            overflow-y: scroll;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+    </style>
     <script>
         function refreshLogs() {
             fetch('/logs')

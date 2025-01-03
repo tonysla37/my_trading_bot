@@ -1,16 +1,19 @@
 trading:
-  backtest: 'False'
-  bench_mode: 'True'
-  buy_ready: 'True'
-  capital: '1000'
-  cible: '200000'
+  backtest: False
+  bench_mode: True
+  buy_ready: True
+  capital: 1000
+  cible: 200000
   crypto_symbol: BTC
-  dca: '100'
+  dca: 100
   fiat_symbol: USD
-  my_truncate: '5'
+  my_truncate: 5
   pair_symbol: BTCUSDT
-  protection: '{''sl_level'': 0.02, ''tp1_level'': 0.1, ''sl_amount'': 1, ''tp1_amount'':
-    1}'
+  protection:
+    sl_level: 0.02
+    tp1_level: 0.1
+    sl_amount: 1
+    tp1_amount: 1
   risk_level: Mid
-  sell_ready: 'True'
-  temps: '5'
+  sell_ready: True
+  temps: 5
