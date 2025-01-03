@@ -79,6 +79,9 @@ scalping_trade_in_progress = False
 API_KEY = os.getenv('BINANCE_API_KEY')
 API_SECRET = os.getenv('BINANCE_API_SECRET')
 
+# perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
+risk = info.define_risk(risk_level)
+
 def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, start):
     # Your existing trading logic goes here
     # Initialisation des clients API
@@ -101,7 +104,7 @@ def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, star
     data = info.prepare_data(data)
     return client, data, fiat_amount, crypto_amount
 
-def run_analysis(data, fiat_amount, crypto_amount, protection=protection):
+def run_analysis(data, fiat_amount, crypto_amount, risk, protection):
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
 
@@ -293,7 +296,7 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
     logging.info(f"#############################################################")
     logging.info("Execution " + time_interval + " at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     ti_client, ti_data, ti_fiat_amount, ti_crypto_amount = gather_datas(key=key, secret=secret, cur_fiat_amount=cur_fiat_amount, cur_crypto_amount=cur_crypto_amount, interval=interval, start="1 Jan, 2020") ### /!\ soldes ecrasées car bench mode
-    ti_analysis = run_analysis(data=ti_data, fiat_amount=ti_fiat_amount, crypto_amount=ti_crypto_amount)
+    ti_analysis = run_analysis(data=ti_data, fiat_amount=ti_fiat_amount, crypto_amount=ti_crypto_amount, risk=risk, protection=protection)
     ti_market_trend, ti_score = trade.analyze_market_trend(indicators=ti_analysis)
     logging.info(f"Tendance globale : {ti_market_trend}")
     logging.info(f"Score : {ti_score}")
@@ -321,9 +324,6 @@ def trading(key, secret, cur_fiat_amount, cur_crypto_amount, time_interval):
 
 def main():
     logging.info("Trading bot started.")
-
-    # perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
-    risk = info.define_risk(risk_level)
     logging.info(f"Niveau de risque défini pour {risk_level}: {risk}")
 
     monthly_fiat_amount = 10000
