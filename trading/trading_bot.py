@@ -28,29 +28,23 @@ import warnings
 # Ignorer tous les FutureWarning
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-# Définir le chemin vers le fichier de log à la racine du projet
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-logfile = os.path.join(project_root, 'trading_bot.log')
+bot_logfile = os.path.join(os.path.dirname(__file__), '../trading_bot.log')
+config_file = os.path.join(os.path.dirname(__file__), '../config.yaml')
 
 # Configuration de la journalisation
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(logfile),
+        logging.FileHandler(bot_logfile),
         logging.StreamHandler()
     ]
 )
 
-# Chemin vers le fichier de configuration à la racine du projet
-CONFIG_PATH = os.path.join(project_root, 'config.yaml')
-
-# Charger le fichier de configuration YAML
-def load_config(file_path=CONFIG_PATH):
-    with open(file_path, 'r') as file:
+def load_config():
+    with open(config_file, 'r') as file:
         return yaml.safe_load(file)
 
-# Exemple d'utilisation
 config = load_config()
 
 # Extraire les paramètres de configuration

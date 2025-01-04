@@ -14,14 +14,19 @@ bot_logfile = os.path.join(os.path.dirname(__file__), 'trading_bot.log')
 config_file = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
 # Configure logging for Flask
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler(flask_logfile),
-        logging.StreamHandler()
-    ]
-)
+flask_handler = logging.FileHandler(flask_logfile)
+flask_handler.setLevel(logging.DEBUG)
+flask_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+
+flask_logger = logging.getLogger('flask_app')
+flask_logger.setLevel(logging.DEBUG)
+flask_logger.addHandler(flask_handler)
+
+# Remove default Flask logger handlers to avoid duplicate logs
+for handler in app.logger.handlers[:]:
+    app.logger.removeHandler(handler)
+
+app.logger.addHandler(flask_handler)
 
 bot_process = None
 
@@ -77,12 +82,10 @@ def calculate_yield():
 @app.route('/start_bot', methods=['POST'])
 def start_bot():
     global bot_process
+    # Remove and recreate the log file
+    if os.path.exists(bot_logfile):
+        os.remove(bot_logfile)
     if bot_process is None:
-        # Remove and recreate the log file
-        if os.path.exists(bot_logfile):
-            os.remove(bot_logfile)
-        open(bot_logfile, 'w').close()
-
         bot_directory = os.path.dirname(os.path.abspath(__file__))
         bot_process = subprocess.Popen(['python', 'trading/trading_bot.py'], cwd=bot_directory)
         return jsonify({"status": "Bot started"})
@@ -92,13 +95,12 @@ def start_bot():
 @app.route('/stop_bot', methods=['POST'])
 def stop_bot():
     global bot_process
+    # Remove and recreate the log file
+    if os.path.exists(bot_logfile):
+        os.remove(bot_logfile)
     if bot_process is not None:
         bot_process.terminate()
         bot_process = None
-        # Remove and recreate the log file
-        if os.path.exists(bot_logfile):
-            os.remove(bot_logfile)
-        open(bot_logfile, 'w').close()
         return jsonify({"status": "Bot stopped"})
     else:
         return jsonify({"status": "Bot is not running"})
@@ -113,13 +115,14 @@ def bot_status():
     else:
         return jsonify({"status": "Bot is not running"})
 
-@app.route('/logs')
-def logs():
+@app.route('/flask_logs')
+def flask_logs():
     try:
         with open(flask_logfile, 'a'):
             pass
-        with open(flask_logfile, 'r') as log_file:
-            logs = log_file.readlines()[-1000:]  # Lire les 1000 dernières lignes de logs
+        with open(flask_logfile, 'r') as flask_log_file:
+            logs = flask_log_file.readlines()[-1000:]  # Lire les 1000 dernières lignes de logs
+        flask_log_file.close()
     except FileNotFoundError:
         logging.error(f"Log file not found: {flask_logfile}")
         logs = ["Log file not found."]
@@ -130,15 +133,16 @@ def bot_logs():
     try:
         with open(bot_logfile, 'a'):
             pass
-        with open(bot_logfile, 'r') as log_file:
-            logs = log_file.readlines()[-1000:]  # Lire les 1000 dernières lignes de logs
+        with open(bot_logfile, 'r') as bot_log_file:
+            logs = bot_log_file.readlines()[-1000:]  # Lire les 1000 dernières lignes de logs
+            bot_log_file.close()
     except FileNotFoundError:
         logging.error(f"Log file not found: {bot_logfile}")
         logs = ["Log file not found."]
     return ''.join(logs)
 
-@app.route('/logs_page')
-def logs_page():
+@app.route('/logs')
+def logs():
     return render_template('logs.html')
 
 if __name__ == '__main__':

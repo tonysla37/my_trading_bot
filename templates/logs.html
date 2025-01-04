@@ -55,7 +55,7 @@
         });
 
         function refreshLogs() {
-            fetch('/logs')
+            fetch('/flask_logs')
                 .then(response => response.text())
                 .then(data => {
                     const logContainer = document.getElementById('log-container');
