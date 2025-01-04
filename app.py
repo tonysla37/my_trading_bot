@@ -4,6 +4,8 @@ import subprocess
 import logging
 import yaml
 
+import trading.informations as info
+
 app = Flask(__name__)
 
 # Paths to log files
@@ -53,14 +55,24 @@ def config():
         for key in config['trading']:
             if isinstance(config['trading'][key], dict):
                 for sub_key in config['trading'][key]:
-                    value = request.form.get(f"{key}_{sub_key}", config['trading'][key][sub_key])
-                    config['trading'][key][sub_key] = convert_value(value)
+                    config['trading'][key][sub_key] = convert_value(request.form.get(f"{key}_{sub_key}"))
             else:
-                value = request.form.get(key, config['trading'][key])
-                config['trading'][key] = convert_value(value)
+                config['trading'][key] = convert_value(request.form.get(key))
         save_config(config)
-        return redirect(url_for('index'))
-    return render_template('config.html', config=config['trading'])
+        return redirect(url_for('config'))
+    return render_template('config.html', config=config)
+
+@app.route('/calculate_yield', methods=['GET', 'POST'])
+def calculate_yield():
+    result = None
+    if request.method == 'POST':
+        capital = float(request.form['capital'])
+        cible = float(request.form['cible'])
+        temps = int(request.form['temps'])
+        dca = float(request.form['dca'])
+        
+        result = info.calculate_rendement(capital, cible, temps, dca)
+    return render_template('calculate_yield.html', result=result)
 
 @app.route('/start_bot', methods=['POST'])
 def start_bot():

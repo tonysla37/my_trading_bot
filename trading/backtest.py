@@ -8,6 +8,7 @@ import os
 import trading.indicators as indic
 import trading.trade as trade
 import trading.influx_utils as idb
+import trading.informations as info  # Votre module optimisé
 
 from datetime import datetime, timedelta
 
@@ -19,11 +20,14 @@ def load_config():
 
 def run_analysis(data, fiat_amount, crypto_amount, risk, protection):
     # Vérifier la présence des clés nécessaires et gérer les valeurs manquantes
+
+    bitcoin_fear_and_greed_index = info.get_bitcoin_fear_and_greed_index()
+
     analysis = {
         'adi': indic.analyse_adi(data.get('adi', None), data.get('prev_adi', None)),
         'bollinger': indic.analyse_bollinger(data.get('high', None), data.get('low', None), data.get('average', None), data.get('close', None)),
         'ema': indic.analyse_ema(data.get('emas', None)),
-        'fear_and_greed': indic.analyse_fear_and_greed(data.get('index_value', None)),
+        'fear_and_greed': indic.analyse_fear_and_greed(int(bitcoin_fear_and_greed_index)),
         'macd': indic.analyse_macd(data.get('macd', None), data.get('signal', None), data.get('histogram', None), data.get('prev_macd', None), data.get('prev_signal', None)),
         'rsi': indic.analyse_rsi(data.get('rsi', None), data.get('prev_rsi', None)),
         'sma': indic.analyse_sma(data.get('smas', None)),

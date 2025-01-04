@@ -1,5 +1,5 @@
 trading:
-  backtest: true
+  backtest: false
   bench_mode: true
   buy_ready: true
   capital: 1000
