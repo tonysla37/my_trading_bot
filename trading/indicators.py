@@ -27,28 +27,29 @@ from pytrends.request import TrendReq
 
 ###################### Analyse des indicateurs techniques ######################
 def analyse_adi(adi, prev_adi):
+    if adi is None or prev_adi is None:
+        return {
+            "trend": "undefined",
+            "adi": adi,
+            "prev_adi": prev_adi,
+            "strength": "undefined"
+        }
     adi_trend = "neutral"
-    
-    # Définir des seuils pour les tendances fortes et faibles
     trend_strength = "weak"
-    threshold = 0.1  # Ce seuil peut être ajusté selon vos besoins
+    threshold = 0.1
     difference = adi - prev_adi
-
     if difference > 0:
         adi_trend = "bullish"
     elif difference < 0:
         adi_trend = "bearish"
-    
-    # Vérification de la force de la tendance
     if abs(difference) >= threshold:
         trend_strength = "strong"
-    
     fields = {
         "trend": adi_trend,
         "adi": adi,
         "prev_adi": prev_adi,
         "strength": trend_strength
-    }  
+    } 
     idb.write_indicator_to_influx(fields=fields, indicator="adi", timestamp=int(datetime.now().timestamp() * 1e9))
     return fields
 
@@ -160,7 +161,14 @@ def analyse_fear_and_greed(index_value):
     return fields
 
 def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
-# def analyse_macd(macd, signal, histogram):
+    if macd is None or signal is None or histogram is None or prev_macd is None or prev_signal is None:
+        return {
+            "trend": "undefined",
+            "macd": macd,
+            "signal": signal,
+            "histogram": histogram
+        }
+    # def analyse_macd(macd, signal, histogram):
     macd_trend = "neutral"
     
     # Vérifier s'il y a divergence
@@ -194,6 +202,12 @@ def analyse_macd(macd, signal, histogram, prev_macd, prev_signal):
     return fields
 
 def analyse_rsi(rsi, prev_rsi):
+    if rsi is None or prev_rsi is None:
+        return {
+            "trend": "undefined",
+            "rsi": rsi,
+            "prev_rsi": prev_rsi
+        }
     rsi_trend = "undefined"
 
     # Analyse des zones de surachat et de survente
@@ -249,6 +263,14 @@ def analyse_sma(smas):
     return fields
 
 def analyse_stoch_rsi(blue, orange, prev_blue, prev_orange):
+    if blue is None or orange is None or prev_blue is None or prev_orange is None:
+        return {
+            "trend": "undefined",
+            "blue": blue,
+            "orange": orange,
+            "prev_blue": prev_blue,
+            "prev_orange": prev_orange
+        }
     srsi_trend = "undefined"
     srsi_strength = "weak"
 
