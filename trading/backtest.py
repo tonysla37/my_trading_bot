@@ -26,7 +26,7 @@ def check_and_initialize_keys(data, keys):
             data[key] = None
     return data
 
-def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, risk, market_trend, score):
+def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, risk):
     # Vérifiez et initialisez les clés manquantes
     required_keys = [
         'prev_adi', 'average', 'emas', 'index_value', 'signal', 'histogram',
@@ -52,7 +52,6 @@ def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, r
         # logging.info(f"Current data: {current_data}")
     
         # Calculer les indicateurs techniques et analyser la tendance du marché
-        # analysis = run_analysis(current_data, fiat_amount=fiat_amount, crypto_amount=crypto_amount, risk=risk, protection=protection)
         analysis = tb.run_analysis(current_data, fiat_amount=fiat_amount, crypto_amount=crypto_amount, risk=risk, protection=protection)
         # logging.info(f"Analysis: {analysis}")
         
@@ -67,8 +66,6 @@ def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, r
             my_truncate=my_truncate,
             protection=protection,
             analysis=analysis,
-            market_trend=market_trend,
-            score=score,
             trade_in_progress=trade_in_progress
         )
 
