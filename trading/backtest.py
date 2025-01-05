@@ -22,7 +22,7 @@ def load_config():
 def check_and_initialize_keys(data, keys):
     for key in keys:
         if key not in data.columns:
-            logging.warning(f"Missing key in data: {key}")
+            # logging.warning(f"Missing key in data: {key}")
             data[key] = None
     return data
 

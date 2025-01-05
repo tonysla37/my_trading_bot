@@ -106,7 +106,6 @@ def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, star
 def run_analysis(data, fiat_amount, crypto_amount, risk, protection):
     # Analyse des indicateurs techniques sur la dernière ligne
     try:
-
         # Récupération de l'indice
         bitcoin_fear_and_greed_index = info.get_bitcoin_fear_and_greed_index()
         # print(f"Bitcoin Fear and Greed Index: {bitcoin_fear_and_greed_index}")
@@ -137,7 +136,6 @@ def run_analysis(data, fiat_amount, crypto_amount, risk, protection):
         res_fear_and_greed = indic.analyse_fear_and_greed(
             int(bitcoin_fear_and_greed_index)
         )
-        # print(f"Bitcoin Fear and Greed Index: {res_fear_and_greed}")
         res_macd = indic.analyse_macd(
             macd=data['macd'].iloc[-1],
             signal=data['macd_signal'].iloc[-1],
