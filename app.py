@@ -60,12 +60,14 @@ def config():
         for key in config['trading']:
             if isinstance(config['trading'][key], dict):
                 for sub_key in config['trading'][key]:
-                    config['trading'][key][sub_key] = convert_value(request.form.get(f"{key}_{sub_key}"))
+                    value = request.form.get(f"{key}_{sub_key}", config['trading'][key][sub_key])
+                    config['trading'][key][sub_key] = convert_value(value)
             else:
-                config['trading'][key] = convert_value(request.form.get(key))
+                value = request.form.get(key, config['trading'][key])
+                config['trading'][key] = convert_value(value)
         save_config(config)
-        return redirect(url_for('config'))
-    return render_template('config.html', config=config)
+        return redirect(url_for('index'))
+    return render_template('config.html', config=config['trading'])
 
 @app.route('/calculate_yield', methods=['GET', 'POST'])
 def calculate_yield():
