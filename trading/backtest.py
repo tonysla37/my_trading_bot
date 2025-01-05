@@ -49,7 +49,16 @@ def backtest_strategy(fiat_amount, crypto_amount, data, config, time_interval, r
                 # Récupérer le timestamp de current_data
         current_timestamp = current_data.index[-1]
         logging.info(f"Current timestamp: {current_timestamp}")
-        # logging.info(f"Current data: {current_data}")
+
+        if i != 1 and result is not None:
+            fiat_amount = result['fiat_amount']
+            crypto_amount = result['crypto_amount']
+        else:
+            fiat_amount = fiat_amount
+            crypto_amount = crypto_amount
+        
+        logging.info(f"Fiat amount: {fiat_amount}")
+        logging.info(f"Crypto amount: {crypto_amount}")
     
         # Calculer les indicateurs techniques et analyser la tendance du marché
         analysis = tb.run_analysis(current_data, fiat_amount=fiat_amount, crypto_amount=crypto_amount, risk=risk, protection=protection)

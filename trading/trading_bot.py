@@ -64,6 +64,8 @@ cible = trading_config['cible']
 temps = trading_config['temps']
 dca = trading_config['dca']
 
+risk = info.define_risk(risk_level)
+
 # Obtenir la date d'aujourd'hui et Formater la date au format 'YYYY-MM-DD'
 today = datetime.now()
 today_format = today.strftime('%Y-%m-%d')
@@ -78,9 +80,6 @@ scalping_trade_in_progress = False
 # Client Binance avec clés API
 API_KEY = os.getenv('BINANCE_API_KEY')
 API_SECRET = os.getenv('BINANCE_API_SECRET')
-
-# perf_percentage = info.calculate_rendement(capital, cible, temps, dca)
-risk = info.define_risk(risk_level)
 
 def gather_datas(key, secret, cur_fiat_amount, cur_crypto_amount, interval, start):
     # Your existing trading logic goes here
