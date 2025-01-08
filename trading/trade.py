@@ -260,13 +260,16 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             log_trade_action(f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}")
             log_trade_action(f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}")
             log_trade_action(f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}")
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
-
+            try:
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Gain possible : {possible_gain}, Perte possible : {possible_loss}, Ratio R : {R}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Ordres : {buy_order}, {sell_order_sl}, {sell_order_tp1}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+            except Exception as e:
+                logging.error(f"Erreur lors de l'envoi des messages discord")
+            
             # Écrire dans InfluxDB après l'achat
             fields = {
                 "fiat_amount": float(analysis['fiat_amount']),
@@ -310,12 +313,15 @@ def trade_action(bench_mode, time_interval, pair_symbol, values, buy_ready, sell
             logging.info(f"Vente de {quantity}")
             logging.info(f"Ordre : {sell_order}")
             logging.info(f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}")
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}"))
-            asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+            try:
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f'################## TRADING ADVISOR {now} ##################'))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Interval de temps : {time_interval}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Vente de {quantity}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, str(sell_order)))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, f"Nouveau solde fiat: {fiat_after_trade}, Nouveau solde crypto: {crypto_after_trade}"))
+                asyncio.run(send_webhook_message(DISCORD_WEBHOOK_URL, '################## FIN DU TRADING ADVISOR ##################'))
+            except Exception as e:
+                logging.error(f"Erreur lors de l'envoi des messages discord")            
 
             # Écrire dans InfluxDB après la vente
             fields = {
