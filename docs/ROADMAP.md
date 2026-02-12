@@ -5,15 +5,16 @@
 ## Vue d'ensemble de la migration
 
 ```
-Phase 0: Préparation                    [Semaines 1-2]
-Phase 1: Refactoring Backend            [Semaines 2-5]
-Phase 2: Système de Bots Dual           [Semaines 5-7]
-Phase 3: API FastAPI                    [Semaines 7-9]
-Phase 4: Bot Discord v2                 [Semaines 9-10]
-Phase 5: Application React Native       [Semaines 10-14]
-Phase 6: Backtesting Avancé             [Semaines 14-16]
-Phase 7: Déploiement & Production       [Semaines 16-18]
-Phase 8: Améliorations Continues        [En continu]
+Phase 0:  Préparation                           [Semaines 1-2]
+Phase 1:  Refactoring Backend                    [Semaines 2-5]
+Phase 2:  Système de Bots & Profils de risque    [Semaines 5-7]
+Phase 2b: Bots Spécialistes & Régime de Marché   [Semaines 7-9]
+Phase 3:  API FastAPI                            [Semaines 9-11]
+Phase 4:  Bot Discord v2                         [Semaines 11-12]
+Phase 5:  Application React Native               [Semaines 12-16]
+Phase 6:  Backtesting Avancé                     [Semaines 16-18]
+Phase 7:  Déploiement & Production               [Semaines 18-20]
+Phase 8:  Améliorations Continues                [En continu]
 ```
 
 ---
@@ -72,17 +73,12 @@ Phase 8: Améliorations Continues        [En continu]
 ### 1.3 Moteur de décision (Decision Engine)
 
 - [ ] **1.3.1** Créer la classe abstraite `BaseStrategy`
-- [ ] **1.3.2** Implémenter `ConservativeStrategy` (bot sécuritaire)
-  - [ ] Seuils de confiance élevés (70%+)
-  - [ ] Minimum 5 indicateurs confirmés
-  - [ ] Position sizing conservateur (1%)
-- [ ] **1.3.3** Implémenter `AggressiveStrategy` (bot agressif)
-  - [ ] Seuils de confiance bas (40%+)
-  - [ ] Minimum 3 indicateurs confirmés
-  - [ ] Position sizing agressif (3%)
-- [ ] **1.3.4** Créer le `DecisionEngine` avec score pondéré
-- [ ] **1.3.5** Ajouter le contexte de marché (Fear & Greed, volume, volatilité)
-- [ ] **1.3.6** Tests unitaires avec scénarios de marché
+- [ ] **1.3.2** Implémenter les **profils de risque** (orthogonaux aux stratégies de marché) :
+  - [ ] `ConservativeStrategy` — seuils élevés (70%+), 5+ indicateurs, position 1%
+  - [ ] `AggressiveStrategy` — seuils bas (40%+), 3+ indicateurs, position 3%
+- [ ] **1.3.3** Créer le `DecisionEngine` avec score pondéré
+- [ ] **1.3.4** Ajouter le `MarketContext` (Fear & Greed, volume, volatilité, régime)
+- [ ] **1.3.5** Tests unitaires avec scénarios de marché
 
 ### 1.4 Moteur d'ordres (Order Engine)
 
@@ -126,6 +122,75 @@ Phase 8: Améliorations Continues        [En continu]
   - [ ] Si les deux bots perdent → réduction globale
   - [ ] Dashboard de suivi des ajustements
 - [ ] **2.5** Tests d'intégration du système dual
+
+---
+
+## Phase 2b — Bots Spécialistes par Régime de Marché
+
+### 2b.1 Market Regime Detector (Détecteur de régime)
+
+- [ ] **2b.1.1** Créer la classe `MarketRegimeDetector`
+- [ ] **2b.1.2** Implémenter la détection des 4 régimes :
+  - [ ] **BULL** : ADX > 25 + EMA20 > EMA50 + MACD positif + Higher Highs/Higher Lows
+  - [ ] **BEAR** : ADX > 25 + EMA20 < EMA50 + MACD négatif + Lower Highs/Lower Lows
+  - [ ] **RANGING** : ADX < 25 OU Choppiness > 61.8 + prix oscille dans un range S/R
+  - [ ] **TRANSITION** : signaux contradictoires, régime précédent en train de changer
+- [ ] **2b.1.3** Implémenter le score de confiance du régime (0.0 - 1.0)
+- [ ] **2b.1.4** Ajouter le compteur de durée du régime (nombre de bougies)
+- [ ] **2b.1.5** Implémenter la confirmation (N bougies consécutives avant changement)
+- [ ] **2b.1.6** Ajouter l'indicateur **ADX** (Average Directional Index) s'il n'est pas déjà présent
+- [ ] **2b.1.7** Tests unitaires avec données historiques connues (bull run 2021, bear 2022, range Q1 2023)
+
+### 2b.2 Bot spécialiste Bull Market
+
+- [ ] **2b.2.1** Implémenter `BullMarketStrategy`
+  - [ ] Achat sur pullbacks : rebond sur EMA20/EMA50
+  - [ ] Achat sur retracements Fibonacci (38.2%, 50%, 61.8%)
+  - [ ] Achat sur support dynamique (support/résistance)
+  - [ ] Vente aux résistances identifiées
+  - [ ] Trailing Stop-Loss (suit le prix à la hausse)
+- [ ] **2b.2.2** Indicateurs prioritaires : EMA, Fibonacci, Support/Résistance, MACD, Volume
+- [ ] **2b.2.3** Position sizing : 100% du sizing normal (confiance élevée en tendance)
+- [ ] **2b.2.4** Tests avec données de bull market (ex: BTC oct 2020 → avr 2021)
+
+### 2b.3 Bot spécialiste Bear Market
+
+- [ ] **2b.3.1** Implémenter `BearMarketStrategy`
+  - [ ] Achat uniquement sur survente extrême (RSI < 20, Extreme Fear)
+  - [ ] Take-profit rapide (3-5%, pas d'optimisme en bear)
+  - [ ] Stop-loss serré (1-1.5%)
+  - [ ] Position sizing réduit à 50% (environnement hostile)
+  - [ ] Optionnel : support du short selling via futures
+- [ ] **2b.3.2** Indicateurs prioritaires : RSI, Bollinger Bands, Volume (capitulation), Fear & Greed
+- [ ] **2b.3.3** Mode défensif : minimum 4 indicateurs de survente extrême avant d'acheter
+- [ ] **2b.3.4** Tests avec données de bear market (ex: BTC nov 2021 → juin 2022)
+
+### 2b.4 Bot spécialiste Range / Latéralisation
+
+- [ ] **2b.4.1** Implémenter `RangeStrategy`
+  - [ ] Détection automatique du range (support/résistance horizontaux)
+  - [ ] Achat quand le prix touche le bas du range + RSI/StochRSI en survente
+  - [ ] Vente quand le prix touche le haut du range + RSI/StochRSI en surachat
+  - [ ] Stop-loss juste sous le range bas (-2%)
+  - [ ] Take-profit au haut du range
+  - [ ] Buffer de 2% aux bornes (ne pas acheter/vendre pile sur la borne)
+- [ ] **2b.4.2** Implémenter `detect_range()` : identification automatique des bornes
+- [ ] **2b.4.3** Indicateurs prioritaires : Bollinger, RSI, Stochastic RSI, Support/Résistance, Choppiness
+- [ ] **2b.4.4** Gestion du breakout : si le prix sort du range → alerte + arrêt du Range Bot
+- [ ] **2b.4.5** Tests avec données de range (ex: BTC juil-sept 2023)
+
+### 2b.5 Orchestration & Transitions
+
+- [ ] **2b.5.1** Intégrer le `MarketRegimeDetector` dans le `PortfolioManager`
+- [ ] **2b.5.2** Implémenter la logique de transition entre régimes :
+  - [ ] BULL → BEAR : Bull Bot ferme progressivement → période tampon → Bear Bot s'active
+  - [ ] BULL → RANGING : Bull Bot ferme → Range Bot détecte les bornes → s'active
+  - [ ] RANGING → BULL : Range Bot ferme → Bull Bot s'active
+  - [ ] Tout → TRANSITION : mode prudent, positions réduites 50%, pas de nouveaux trades
+- [ ] **2b.5.3** Implémenter le mode "exit only" pour les bots en cours de désactivation
+- [ ] **2b.5.4** Notifications Discord de changement de régime (avec détails)
+- [ ] **2b.5.5** Stocker l'historique des régimes en BDD (`market_regimes` table)
+- [ ] **2b.5.6** Tests d'intégration : simulation de changements de régime sur données réelles
 
 ---
 
@@ -364,22 +429,26 @@ Phase 8: Améliorations Continues        [En continu]
 ```
 🔴 CRITIQUE (faire en premier)
 ├── Refactoring en classes indépendantes (indicateurs, stratégies)
-├── Système de 2 bots (sécuritaire + agressif)
-├── Réallocation automatique des gains
+├── Market Regime Detector (détection bull/bear/range)
+├── 3 bots spécialistes (Bull Bot, Bear Bot, Range Bot)
+├── 2 profils de risque (Safe + Aggressive) × 3 spécialistes
+├── Réallocation automatique des gains (aggro → safe)
+├── Orchestration des transitions de régime
 ├── Persistance d'état (PostgreSQL)
 └── Réduction dynamique du risque
 
 🟡 IMPORTANT (faire ensuite)
 ├── API FastAPI complète
-├── Bot Discord v2 (commandes slash)
+├── Bot Discord v2 (commandes slash + alertes de régime)
 ├── Application React Native
-├── Backtesting avancé (frais, metrics)
-└── Tests complets
+├── Backtesting avancé (frais, metrics, par régime)
+└── Tests complets (dont tests par régime avec données historiques)
 
 🟢 NICE TO HAVE (améliorations futures)
 ├── Multi-paires simultanées
-├── Machine Learning
-├── Trailing Stop-Loss
+├── Machine Learning (pondération dynamique des indicateurs)
+├── Trailing Stop-Loss (déjà intégré dans Bull Bot)
 ├── Sentiment Analysis
+├── Backtesting comparatif des bots spécialistes par régime
 └── Multi-exchange arbitrage
 ```

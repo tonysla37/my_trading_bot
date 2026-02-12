@@ -6,7 +6,9 @@ CryptoTrader Bot est une plateforme de trading automatisé de cryptomonnaies com
 - Un **backend Python** (FastAPI + moteurs de trading)
 - Une **application mobile React Native** (Expo)
 - Un **bot Discord** pour les alertes et le contrôle
-- Deux bots de trading : **Sécuritaire** et **Agressif** avec réallocation automatique des gains
+- Trois **bots spécialistes** par condition de marché (Bull, Bear, Range)
+- Deux **profils de risque** (Sécuritaire + Agressif) avec réallocation automatique des gains
+- Un **détecteur de régime de marché** qui orchestre l'activation des bots
 
 ---
 
@@ -166,34 +168,62 @@ Chaque indicateur est un **plugin indépendant** qui hérite de `BaseIndicator`.
 
 ### Moteur de décision
 
-Le moteur de décision transforme les signaux en actions (BUY/SELL/HOLD). Il utilise le pattern **Strategy** :
+Le moteur de décision transforme les signaux en actions (BUY/SELL/HOLD). Il utilise le pattern **Strategy** avec deux dimensions :
 
+**Profils de risque** (taille de position) :
 - **ConservativeStrategy** : seuils élevés, confirmation par 5+ indicateurs, risque 1%
 - **AggressiveStrategy** : seuils bas, confirmation par 3+ indicateurs, risque 3%
 
-### Deux bots de trading
+**Stratégies de marché** (logique d'entrée/sortie) :
+- **BullMarketStrategy** : Trend Following — achat sur pullbacks, vente aux résistances
+- **BearMarketStrategy** : Défensif — achat sur survente extrême, TP rapide
+- **RangeStrategy** : Mean Reversion — achat bas du range, vente haut du range
 
-| | Bot Sécuritaire | Bot Agressif |
-|---|----------------|-------------|
+### Détection du régime de marché
+
+Le `MarketRegimeDetector` analyse en continu les indicateurs pour déterminer le régime :
+
+| Régime | Conditions | Bot activé |
+|--------|-----------|------------|
+| **BULL** | ADX > 25, EMA20 > EMA50, MACD > 0, Higher Highs | Bull Bot |
+| **BEAR** | ADX > 25, EMA20 < EMA50, MACD < 0, Lower Lows | Bear Bot |
+| **RANGING** | ADX < 25 ou CHOP > 61.8, prix en range S/R | Range Bot |
+| **TRANSITION** | Signaux contradictoires | Pause — positions réduites 50% |
+
+### Trois bots spécialistes
+
+| | Bull Bot | Bear Bot | Range Bot |
+|---|---------|----------|-----------|
+| **Principe** | Trend Following | Protection & Rebonds | Mean Reversion |
+| **Achat** | Pullbacks, supports, Fibonacci | Survente extrême uniquement | Bas du range |
+| **Vente** | Résistances, trailing SL | TP rapide (3-5%) | Haut du range |
+| **Indicateurs** | EMA, Fibonacci, MACD | RSI, Bollinger, Fear&Greed | Bollinger, S/R, StochRSI |
+| **Position** | 100% sizing normal | 50% sizing (réduit) | 75% sizing |
+| **Stop-Loss** | Trailing (suit la hausse) | Serré (1-1.5%) | Sous le range (-2%) |
+
+Chaque bot spécialiste peut fonctionner en mode **Safe (1%)** ou **Aggressive (3%)**, ce qui donne **6 combinaisons** au total.
+
+### Profils de risque & Allocation
+
+| | Profil Sécuritaire | Profil Agressif |
+|---|-------------------|-----------------|
 | **Allocation** | 70% du capital | 30% du capital |
 | **Risque** | Low (1% par trade) | Max (3% par trade) |
-| **Stratégie** | Conservative | Aggressive |
 | **Fréquence** | Moins de trades | Plus de trades |
-| **Stop-Loss** | 1-2% | 2-3% |
-| **Take-Profit** | 5-8% | 10-15% |
 
 ### Réallocation automatique
 
-Quand le bot agressif réalise un gain :
-1. Un **ratio configurable** (défaut 30%) du gain est transféré au bot sécuritaire
-2. Le bot sécuritaire augmente son capital de base
-3. Le bot agressif conserve le reste pour continuer à trader
+Quand le profil agressif réalise un gain (quel que soit le bot spécialiste actif) :
+1. Un **ratio configurable** (défaut 30%) du gain est transféré au profil sécuritaire
+2. Le profil sécuritaire augmente son capital de base
+3. Le profil agressif conserve le reste pour continuer à trader
 
 ### Réduction dynamique du risque
 
 - **3 pertes consécutives** → risque divisé par 2
 - **5 pertes consécutives** → mise en pause du bot
 - **2 gains consécutifs** après réduction → restauration progressive du risque
+- Applicable par bot spécialiste ET par profil de risque
 
 ---
 
@@ -248,9 +278,10 @@ Quand le bot agressif réalise un gain :
 
 | Commande | Description |
 |----------|-------------|
-| `/status` | Résumé des bots (capital, P&L, positions) |
+| `/status` | Résumé des bots (capital, P&L, positions, régime actif) |
 | `/trades` | Liste des derniers trades |
 | `/risk` | Niveaux de risque actuels |
+| `/regime` | Régime de marché actuel (bull/bear/range) + confiance + durée |
 | `/pause [bot]` | Mettre un bot en pause |
 | `/resume [bot]` | Reprendre un bot |
 | `/backtest [pair] [period]` | Lancer un backtest rapide |
