@@ -48,10 +48,28 @@ Phase 8:  Améliorations Continues                [En continu]
 - [ ] **1.1.4** Écrire la migration initiale
 - [ ] **1.1.5** Tests unitaires des modèles
 
-### 1.2 Moteur d'indicateurs (Indicator Engine)
+### 1.2 DataProvider (Fournisseur de données dual-mode)
 
-- [ ] **1.2.1** Créer la classe abstraite `BaseIndicator` avec l'interface standard
-- [ ] **1.2.2** Migrer chaque indicateur existant vers une classe indépendante :
+- [ ] **1.2.1** Créer l'interface abstraite `DataProvider`
+  - [ ] `get_next_candle(timeframe)` — prochaine bougie
+  - [ ] `get_window(timeframe, size)` — sliding window (N dernières bougies)
+  - [ ] `get_current_price()` — prix courant
+  - [ ] `get_available_timeframes()` — timeframes disponibles
+- [ ] **1.2.2** Implémenter `RealtimeDataProvider` (mode live)
+  - [ ] Connexion WebSocket à l'exchange
+  - [ ] Buffer circulaire par timeframe
+  - [ ] Gestion de la reconnexion
+- [ ] **1.2.3** Implémenter `BatchDataProvider` (mode backtest)
+  - [ ] Curseurs synchronisés par timeframe
+  - [ ] Sliding window : le bot ne voit que le passé, jamais le futur
+  - [ ] Synchronisation temporelle inter-timeframes (1 Daily = 24 Intraday = 96 Scalping)
+  - [ ] `advance_all()` pour avancer tous les curseurs d'un pas
+- [ ] **1.2.4** Tests unitaires : vérifier que live et batch produisent le même comportement
+
+### 1.3 Moteur d'indicateurs (Indicator Engine)
+
+- [ ] **1.3.1** Créer la classe abstraite `BaseIndicator` avec l'interface standard
+- [ ] **1.3.2** Migrer chaque indicateur existant vers une classe indépendante :
   - [ ] RSI
   - [ ] MACD
   - [ ] Bollinger Bands
@@ -59,46 +77,57 @@ Phase 8:  Améliorations Continues                [En continu]
   - [ ] SMA
   - [ ] Stochastic RSI
   - [ ] ADI
+  - [ ] ADX (Average Directional Index — nouveau, nécessaire pour la détection de régime)
   - [ ] Volume
   - [ ] Fibonacci
   - [ ] Support/Résistance
   - [ ] Fear & Greed Index
   - [ ] Choppiness Index
   - [ ] Google Trends
-- [ ] **1.2.3** Créer le `IndicatorEngine` avec le système de plugins
-- [ ] **1.2.4** Implémenter le support multi-timeframe
-- [ ] **1.2.5** Ajouter les poids configurables par indicateur
-- [ ] **1.2.6** Tests unitaires pour chaque indicateur (données de test connues)
+- [ ] **1.3.3** Créer le `IndicatorEngine` avec le système de plugins
+- [ ] **1.3.4** Implémenter le support multi-timeframe
+- [ ] **1.3.5** Ajouter les poids configurables par indicateur
+- [ ] **1.3.6** Tests unitaires pour chaque indicateur (données de test connues)
 
-### 1.3 Moteur de décision (Decision Engine)
+### 1.4 Moteur de décision (Decision Engine)
 
-- [ ] **1.3.1** Créer la classe abstraite `BaseStrategy`
-- [ ] **1.3.2** Implémenter les **profils de risque** (orthogonaux aux stratégies de marché) :
-  - [ ] `ConservativeStrategy` — seuils élevés (70%+), 5+ indicateurs, position 1%
-  - [ ] `AggressiveStrategy` — seuils bas (40%+), 3+ indicateurs, position 3%
-- [ ] **1.3.3** Créer le `DecisionEngine` avec score pondéré
-- [ ] **1.3.4** Ajouter le `MarketContext` (Fear & Greed, volume, volatilité, régime)
-- [ ] **1.3.5** Tests unitaires avec scénarios de marché
+- [ ] **1.4.1** Créer la classe abstraite `BaseStrategy`
+- [ ] **1.4.2** Implémenter les **4 profils de risque** :
+  - [ ] `SafeProfile` — risque 1%, allocation 40%, levier x1, spot
+  - [ ] `AggressiveProfile` — risque 3%, allocation 25%, levier x1, spot
+  - [ ] `SafeLeverageProfile` — risque 1%, allocation 20%, levier x3, futures
+  - [ ] `AggressiveLeverageProfile` — risque 3%, allocation 15%, levier x10, futures
+- [ ] **1.4.3** Créer le `DecisionEngine` avec score pondéré
+- [ ] **1.4.4** Ajouter le `MarketContext` (Fear & Greed, volume, volatilité, régime, timeframe)
+- [ ] **1.4.5** Tests unitaires avec scénarios de marché
 
-### 1.4 Moteur d'ordres (Order Engine)
+### 1.5 Moteur d'ordres (Order Engine)
 
-- [ ] **1.4.1** Créer la classe abstraite `BaseExchange`
-- [ ] **1.4.2** Migrer le connecteur Binance
-- [ ] **1.4.3** Migrer le connecteur Kraken
-- [ ] **1.4.4** Créer le `OrderEngine` avec validation et protection
-- [ ] **1.4.5** Implémenter les ordres groupés (entry + SL + TP atomiques)
-- [ ] **1.4.6** Ajouter le mode simulation (bench_mode) proprement isolé
-- [ ] **1.4.7** Tests unitaires avec mock exchange
+- [ ] **1.5.1** Créer la classe abstraite `BaseExchange`
+- [ ] **1.5.2** Migrer le connecteur Binance (spot + futures)
+- [ ] **1.5.3** Migrer le connecteur Kraken (spot + futures)
+- [ ] **1.5.4** Créer le `OrderEngine` avec validation et protection
+- [ ] **1.5.5** Implémenter les ordres groupés (entry + SL + TP atomiques)
+- [ ] **1.5.6** Support du levier : ordres futures avec marge isolée
+- [ ] **1.5.7** Ajouter le mode simulation (bench_mode) via le `BatchDataProvider`
+- [ ] **1.5.8** Tests unitaires avec mock exchange (spot et futures)
 
-### 1.5 Gestion des risques (Risk Management)
+### 1.6 Gestion des risques (Risk Management)
 
-- [ ] **1.5.1** Créer le `RiskManager` centralisé
-- [ ] **1.5.2** Implémenter le `RiskReducer` (réduction dynamique)
-  - [ ] Détection des pertes consécutives (≥3 → ÷2, ≥5 → pause)
+- [ ] **1.6.1** Créer le `RiskManager` centralisé
+- [ ] **1.6.2** Implémenter le `RiskReducer` (réduction dynamique)
+  - [ ] Détection des pertes consécutives (≥3 → risque ÷ 2, ≥5 → pause)
+  - [ ] Pour les profils levier : ≥3 pertes → levier ÷ 2 aussi (x10→x5→x3)
   - [ ] Restauration progressive (2 gains → risque +)
-- [ ] **1.5.3** Position sizing avancé (Kelly Criterion en option)
-- [ ] **1.5.4** Maximum drawdown protection (arrêt si DD > seuil)
-- [ ] **1.5.5** Tests unitaires avec historiques de trades simulés
+- [ ] **1.6.3** Position sizing avancé (Kelly Criterion en option)
+- [ ] **1.6.4** Maximum drawdown protection (arrêt si DD > seuil, seuils différents par profil)
+- [ ] **1.6.5** Sécurités spécifiques levier :
+  - [ ] SL obligatoire avant prix de liquidation (marge sécurité 30%)
+  - [ ] Monitoring du funding rate (réduction si > 0.1%)
+  - [ ] Réduction levier automatique en haute volatilité
+  - [ ] Fermeture d'urgence si prix approche liquidation
+  - [ ] Pas de levier en BEAR market pour le profil Safe Leverage
+- [ ] **1.6.6** Tests unitaires avec historiques de trades simulés (spot et futures)
 
 ---
 

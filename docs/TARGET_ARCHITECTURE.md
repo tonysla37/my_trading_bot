@@ -193,33 +193,158 @@ class AggressiveStrategy(BaseStrategy):
 
 ### 2b. Market Regime Detector (Détecteur de régime de marché)
 
-**Rôle** : Déterminer la condition actuelle du marché (haussier, baissier, latéralisation) pour activer le bot spécialiste le plus adapté.
+**Rôle** : Déterminer la condition actuelle du marché (haussier, baissier, latéralisation) pour activer le bot spécialiste le plus adapté. Fonctionne en **deux modes** (temps réel et batch) et analyse **top-down** du timeframe le plus haut vers le plus bas.
+
+#### Mode dual : Real-time & Batch
 
 ```python
+class DataMode(Enum):
+    REALTIME = "realtime"  # Données au fil de l'eau (exchange WebSocket/polling)
+    BATCH = "batch"        # Données historiques (DataFrame complet)
+
 class MarketRegime(Enum):
     """Régimes de marché détectés."""
-    BULL = "bull"           # Tendance haussière confirmée
-    BEAR = "bear"           # Tendance baissière confirmée
-    RANGING = "ranging"     # Latéralisation / consolidation
+    BULL = "bull"              # Tendance haussière confirmée
+    BEAR = "bear"              # Tendance baissière confirmée
+    RANGING = "ranging"        # Latéralisation / consolidation
     TRANSITION = "transition"  # Phase de transition (incertain)
 
 class MarketRegimeDetector:
-    """Détecte le régime de marché actuel à partir des indicateurs."""
+    """Détecte le régime de marché — dual mode (realtime + batch).
+
+    Principe fondamental : analyse TOP-DOWN.
+    Le régime est d'abord déterminé sur le timeframe le plus haut (Monthly),
+    puis affiné en descendant (Weekly → Daily → Intraday → Scalping).
+    Le timeframe haut donne la TENDANCE MAJEURE, le timeframe bas donne le TIMING.
+    """
 
     def __init__(self, config: RegimeConfig):
-        self.lookback_period: int = 50        # Bougies analysées
-        self.confirmation_candles: int = 3    # Bougies de confirmation
-        self.adx_threshold: float = 25.0      # ADX > 25 = tendance
-        self.chop_threshold: float = 61.8     # CHOP > 61.8 = range
+        self.lookback_period: int = 50
+        self.confirmation_candles: int = 3
+        self.adx_threshold: float = 25.0
+        self.chop_threshold: float = 61.8
+        self.timeframe_hierarchy: list[Timeframe] = [
+            Timeframe.MONTHLY,   # Tendance primaire (poids: 40%)
+            Timeframe.WEEKLY,    # Tendance secondaire (poids: 25%)
+            Timeframe.DAILY,     # Tendance intermédiaire (poids: 20%)
+            Timeframe.INTRADAY,  # Contexte court terme (poids: 10%)
+            Timeframe.SCALPING,  # Timing précis (poids: 5%)
+        ]
+        self.timeframe_weights: dict[Timeframe, float] = {
+            Timeframe.MONTHLY: 0.40,
+            Timeframe.WEEKLY: 0.25,
+            Timeframe.DAILY: 0.20,
+            Timeframe.INTRADAY: 0.10,
+            Timeframe.SCALPING: 0.05,
+        }
 
-    def detect(self, data: pd.DataFrame, indicators: IndicatorResult) -> MarketRegime:
-        """Détecte le régime courant via une combinaison d'indicateurs."""
+    # --- MODE REAL-TIME ---
+    def detect_realtime(
+        self,
+        candle: OHLCVCandle,
+        timeframe: Timeframe
+    ) -> RegimeSnapshot:
+        """Traite une bougie en temps réel et met à jour l'état interne.
+        Appelé à chaque nouvelle bougie reçue de l'exchange."""
+
+    # --- MODE BATCH ---
+    def detect_batch(
+        self,
+        datasets: dict[Timeframe, pd.DataFrame]
+    ) -> list[RegimeSegment]:
+        """Analyse un DataFrame complet et retourne les segments de régime.
+        Utilisé par le BacktestEngine pour découper les données historiques."""
+
+    # --- ANALYSE TOP-DOWN ---
+    def detect_top_down(
+        self,
+        datasets: dict[Timeframe, pd.DataFrame],
+        current_index: int
+    ) -> TopDownAnalysis:
+        """Analyse top-down : commence par Monthly, descend jusqu'à Scalping.
+        Chaque timeframe confirme ou infirme le régime du timeframe supérieur."""
 
     def get_regime_confidence(self) -> float:
         """Confiance dans le régime détecté (0.0 - 1.0)."""
 
     def get_regime_duration(self) -> int:
         """Nombre de bougies dans le régime actuel."""
+
+    def get_regime_per_timeframe(self) -> dict[Timeframe, MarketRegime]:
+        """Retourne le régime détecté par timeframe (pour analyse divergente)."""
+```
+
+#### Analyse top-down multi-timeframe
+
+```
+ANALYSE TOP-DOWN (du plus haut au plus bas)
+═══════════════════════════════════════════
+
+Monthly ──► BULL (EMA20 > EMA50, MACD+, ADX=32)      Poids: 40%
+   │
+   ▼
+Weekly  ──► BULL (confirme, Higher Highs)              Poids: 25%
+   │
+   ▼
+Daily   ──► RANGING (consolidation temporaire)         Poids: 20%
+   │
+   ▼
+Intraday──► BEAR (pullback en cours)                   Poids: 10%
+   │
+   ▼
+Scalping──► BEAR (vente court terme)                   Poids: 5%
+
+
+Score pondéré:
+  BULL  = 0.40×1 + 0.25×1 + 0.20×0 + 0.10×0 + 0.05×0 = 0.65
+  BEAR  = 0.40×0 + 0.25×0 + 0.20×0 + 0.10×1 + 0.05×1 = 0.15
+  RANGE = 0.40×0 + 0.25×0 + 0.20×1 + 0.10×0 + 0.05×0 = 0.20
+
+RÉSULTAT: BULL (confiance 65%) — le pullback intraday est une
+OPPORTUNITÉ D'ACHAT pour le Bull Bot, pas un signal baissier.
+
+DÉCISION PAR TIMEFRAME:
+  ├── Monthly/Weekly : Le Bull Bot prend des positions long terme
+  ├── Daily : Le Range Bot peut jouer la consolidation
+  └── Intraday/Scalping : Le Bull Bot attend le rebond pour entrer
+```
+
+**Principe clé** : Un régime BEAR sur un timeframe bas dans un contexte BULL sur les timeframes hauts = **pullback/opportunité d'achat**, pas un retournement. C'est le timeframe haut qui prime.
+
+#### Résultats typés
+
+```python
+@dataclass
+class RegimeSnapshot:
+    """État du régime à un instant T (mode real-time)."""
+    regime: MarketRegime
+    confidence: float
+    per_timeframe: dict[Timeframe, MarketRegime]
+    dominant_timeframe: Timeframe  # Le TF qui a le plus de poids dans la décision
+    timestamp: datetime
+
+@dataclass
+class RegimeSegment:
+    """Segment temporel d'un régime (mode batch/backtest)."""
+    regime: MarketRegime
+    start_index: int
+    end_index: int
+    start_date: datetime
+    end_date: datetime
+    confidence: float
+    per_timeframe: dict[Timeframe, MarketRegime]
+    duration_candles: int
+
+@dataclass
+class TopDownAnalysis:
+    """Résultat de l'analyse top-down multi-timeframe."""
+    global_regime: MarketRegime
+    global_confidence: float
+    per_timeframe: dict[Timeframe, MarketRegime]
+    per_timeframe_confidence: dict[Timeframe, float]
+    weighted_scores: dict[MarketRegime, float]
+    recommendation: str  # ex: "BULL pullback — buy opportunity on Daily"
+    trading_timeframes: dict[Timeframe, MarketRegime]  # Régime effectif par TF pour les bots
 ```
 
 **Critères de détection** :
@@ -369,17 +494,18 @@ MarketRegimeDetector
 La spécialisation par régime de marché est **orthogonale** au profil de risque :
 
 ```
-                    ┌──────────────┬──────────────┐
-                    │  Safe (1%)   │ Aggro (3%)   │
-    ┌───────────────┼──────────────┼──────────────┤
-    │ Bull Bot      │ Bull + Safe  │ Bull + Aggro │
-    │ Bear Bot      │ Bear + Safe  │ Bear + Aggro │
-    │ Range Bot     │ Range + Safe │ Range + Aggro│
-    └───────────────┴──────────────┴──────────────┘
+                    ┌──────────┬──────────┬─────────────┬────────────────┐
+                    │ Safe (x1)│Aggro (x1)│Safe Lev (x3)│Aggro Lev (x10)│
+    ┌───────────────┼──────────┼──────────┼─────────────┼────────────────┤
+    │ Bull Bot      │ Bull+Safe│Bull+Aggro│ Bull+SafeLev│ Bull+AggroLev  │
+    │ Bear Bot      │ Bear+Safe│Bear+Aggro│ Bear+SafeLev│ Bear+AggroLev  │
+    │ Range Bot     │Range+Safe│Range+Aggr│Range+SafeLev│Range+AggroLev  │
+    └───────────────┴──────────┴──────────┴─────────────┴────────────────┘
 
-    → 6 combinaisons possibles
-    → Le profil de risque module la TAILLE de la position
+    → 12 combinaisons possibles (4 actives à la fois selon le régime)
+    → Le profil de risque module la TAILLE de la position + le LEVIER
     → La stratégie de marché module la LOGIQUE d'entrée/sortie
+    → Le DataProvider alimente indifféremment en live ou en backtest
 ```
 
 ---
@@ -420,36 +546,178 @@ class KrakenExchange(BaseExchange): ...
 
 ---
 
-### 4. Backtest Engine (Moteur de benchmark)
+### 4. DataProvider & Backtest Engine
 
-**Rôle** : Simuler des stratégies sur des données historiques avec réalisme.
+#### 4a. DataProvider (Fournisseur de données dual-mode)
+
+**Problème résolu** : Les bots sont conçus pour recevoir des données au fil de l'eau (temps réel). Comment les alimenter avec un DataFrame historique sans réécrire toute la logique ?
+
+**Solution** : Un `DataProvider` abstrait avec deux implémentations qui exposent la **même interface**. Les bots ne savent pas s'ils consomment des données live ou historiques.
 
 ```python
-class BacktestEngine:
-    """Moteur de backtesting avancé."""
+class DataProvider(ABC):
+    """Interface unifiée : les bots consomment des données
+    sans savoir si c'est du live ou du batch."""
 
-    def __init__(self, config: BacktestConfig):
-        self.fees: Decimal = Decimal("0.001")     # 0.1% par défaut
-        self.slippage: Decimal = Decimal("0.0005") # 0.05% par défaut
+    @abstractmethod
+    async def get_next_candle(self, timeframe: Timeframe) -> Optional[OHLCVCandle]:
+        """Retourne la prochaine bougie (bloquant en live, itératif en batch)."""
+
+    @abstractmethod
+    async def get_window(self, timeframe: Timeframe, size: int) -> pd.DataFrame:
+        """Retourne les N dernières bougies (pour le calcul d'indicateurs)."""
+
+    @abstractmethod
+    def get_current_price(self) -> Decimal:
+        """Prix actuel (dernière close en batch, prix live en realtime)."""
+
+    @abstractmethod
+    def get_available_timeframes(self) -> list[Timeframe]:
+        """Timeframes disponibles."""
+
+
+class RealtimeDataProvider(DataProvider):
+    """Mode temps réel — données depuis l'exchange."""
+
+    def __init__(self, exchange: BaseExchange, pairs: list[str]):
+        self.exchange = exchange
+        self._buffers: dict[Timeframe, deque[OHLCVCandle]] = {}
+
+    async def get_next_candle(self, timeframe: Timeframe) -> Optional[OHLCVCandle]:
+        """Attend la prochaine bougie via WebSocket/polling."""
+
+    async def get_window(self, timeframe: Timeframe, size: int) -> pd.DataFrame:
+        """Retourne les N dernières bougies depuis le buffer ou l'API."""
+
+
+class BatchDataProvider(DataProvider):
+    """Mode batch — données depuis un DataFrame historique.
+
+    Simule le passage du temps en itérant sur les lignes du DataFrame.
+    Supporte plusieurs timeframes simultanément.
+    """
+
+    def __init__(self, datasets: dict[Timeframe, pd.DataFrame]):
+        self.datasets = datasets                    # {Timeframe: DataFrame complet}
+        self._cursors: dict[Timeframe, int] = {}    # Position courante par TF
+        self._synced: bool = True                    # Synchronisation inter-TF
+
+    async def get_next_candle(self, timeframe: Timeframe) -> Optional[OHLCVCandle]:
+        """Avance le curseur d'une bougie et retourne la bougie courante.
+        Retourne None quand le DataFrame est épuisé."""
+        cursor = self._cursors[timeframe]
+        if cursor >= len(self.datasets[timeframe]):
+            return None
+        candle = self._row_to_candle(self.datasets[timeframe].iloc[cursor])
+        self._cursors[timeframe] += 1
+        return candle
+
+    async def get_window(self, timeframe: Timeframe, size: int) -> pd.DataFrame:
+        """Retourne les N bougies AVANT le curseur courant (sliding window).
+        C'est la clé : le bot ne voit que le passé, jamais le futur."""
+        cursor = self._cursors[timeframe]
+        start = max(0, cursor - size)
+        return self.datasets[timeframe].iloc[start:cursor].copy()
+
+    def advance_all(self) -> bool:
+        """Avance tous les curseurs d'un pas (synchronisé par timestamp).
+        Gère le fait que 1 bougie Daily = 24 bougies Intraday = 96 bougies 15min."""
+```
+
+**Flux du backtest** :
+
+```
+DataFrame historique (ex: 2 ans de données BTC)
+    │
+    ▼
+BatchDataProvider
+    │
+    ├── datasets = {
+    │       Monthly: DataFrame[24 rows],
+    │       Weekly:  DataFrame[104 rows],
+    │       Daily:   DataFrame[730 rows],
+    │       Intraday:DataFrame[17520 rows],
+    │       Scalping:DataFrame[70080 rows]
+    │   }
+    │
+    ├── Synchronisation temporelle :
+    │   Quand le curseur Daily avance d'1 jour,
+    │   le curseur Intraday avance de 24 bougies,
+    │   le curseur Scalping avance de 96 bougies.
+    │
+    ▼
+Les bots reçoivent les données bougie par bougie
+via get_next_candle() — identique au mode live.
+Ils ne voient JAMAIS les données futures (sliding window).
+```
+
+#### 4b. BacktestRouter (Routeur par régime)
+
+**Problème résolu** : En backtest, il faut automatiquement router les segments de données vers le bon bot spécialiste (Bull, Bear, Range) exactement comme le ferait le MarketRegimeDetector en live.
+
+```python
+class BacktestRouter:
+    """Route les données historiques vers les bons bots spécialistes.
+
+    1. Le MarketRegimeDetector analyse le DataFrame en mode batch
+    2. Il découpe les données en segments par régime
+    3. Chaque segment est soumis au bot spécialiste correspondant
+    4. Les résultats sont agrégés pour le rapport final
+    """
+
+    def __init__(
+        self,
+        regime_detector: MarketRegimeDetector,
+        specialist_bots: dict[MarketRegime, BaseStrategy],
+        indicator_engine: IndicatorEngine
+    ):
+        self.regime_detector = regime_detector
+        self.specialist_bots = specialist_bots
+        self.indicator_engine = indicator_engine
 
     def run(
         self,
-        data: pd.DataFrame,
-        strategy: BaseStrategy,
+        datasets: dict[Timeframe, pd.DataFrame],
+        risk_profiles: list[RiskProfile],
         initial_capital: Decimal,
-        timeframe: Timeframe
-    ) -> BacktestResult:
-        """Exécute un backtest complet."""
+        config: BacktestConfig
+    ) -> BacktestReport:
+        """Exécute le backtest complet avec routage par régime.
 
-    def run_multi_timeframe(self, datasets: dict) -> BacktestResult:
-        """Backtest multi-temporalité."""
+        Étapes :
+        1. Créer un BatchDataProvider à partir des datasets
+        2. Pour chaque pas de temps (bougie du TF principal) :
+           a. Le MarketRegimeDetector fait l'analyse top-down
+           b. Le régime détermine quel bot spécialiste est actif
+           c. Le bot actif reçoit les indicateurs et prend sa décision
+           d. L'Order Engine simule l'exécution
+           e. Le Portfolio Manager gère la réallocation si nécessaire
+        3. En cas de changement de régime : transition propre
+        4. Agréger les résultats
+        """
 
-    def compare_strategies(
+    def _segment_by_regime(
         self,
-        strategies: list[BaseStrategy],
-        data: pd.DataFrame
-    ) -> ComparisonReport:
-        """Compare plusieurs stratégies sur le même jeu de données."""
+        datasets: dict[Timeframe, pd.DataFrame]
+    ) -> list[RegimeSegment]:
+        """Découpe les données en segments par régime détecté.
+        Utilise l'analyse top-down multi-timeframe."""
+
+    def _run_segment(
+        self,
+        segment: RegimeSegment,
+        bot: BaseStrategy,
+        data_provider: BatchDataProvider
+    ) -> list[SimulatedTrade]:
+        """Exécute un segment sur le bot spécialiste approprié."""
+
+
+@dataclass
+class BacktestConfig:
+    fees: Decimal = Decimal("0.001")       # 0.1% par défaut
+    slippage: Decimal = Decimal("0.0005")  # 0.05% par défaut
+    primary_timeframe: Timeframe = Timeframe.DAILY  # TF de référence pour l'itération
+    use_top_down: bool = True              # Analyse top-down multi-TF
 
 @dataclass
 class BacktestResult:
@@ -461,13 +729,63 @@ class BacktestResult:
     profit_factor: float
     trades: list[SimulatedTrade]
     equity_curve: pd.Series
+
+@dataclass
+class BacktestReport:
+    """Rapport complet incluant l'analyse par régime."""
+    overall: BacktestResult                           # Performance globale
+    per_regime: dict[MarketRegime, BacktestResult]    # Performance par régime
+    per_bot: dict[str, BacktestResult]                # Performance par bot spécialiste
+    per_risk_profile: dict[str, BacktestResult]       # Performance par profil de risque
+    regime_segments: list[RegimeSegment]               # Timeline des régimes détectés
+    regime_transitions: int                            # Nombre de changements de régime
+    regime_distribution: dict[MarketRegime, float]    # % du temps dans chaque régime
+    reallocations: list[ReallocationEvent]             # Historique des réallocations
+```
+
+**Exemple concret : backtest sur 2 ans de BTC** :
+
+```
+Données: BTC/USDT 2022-01-01 → 2024-01-01
+
+Le BacktestRouter analyse et découpe automatiquement :
+
+Segment 1: 2022-01 → 2022-05  BEAR    ──► BearMarketStrategy
+  ├── Bear Bot Safe : -3.2% (SL serrés, peu de trades)
+  └── Bear Bot Aggro: -8.1% (plus de trades, mais bien limité)
+
+Segment 2: 2022-06 → 2022-11  RANGING ──► RangeStrategy
+  ├── Range Bot Safe : +4.5% (mean reversion prudent)
+  └── Range Bot Aggro: +11.2% (plus de rotations dans le range)
+
+Segment 3: 2022-11 → 2023-01  BEAR    ──► BearMarketStrategy
+  ├── Bear Bot Safe : -1.8%
+  └── Bear Bot Aggro: -5.4%
+
+Segment 4: 2023-01 → 2023-07  BULL    ──► BullMarketStrategy
+  ├── Bull Bot Safe : +18.3% (trend following prudent)
+  └── Bull Bot Aggro: +42.7% (trend following agressif)
+
+Segment 5: 2023-07 → 2023-10  RANGING ──► RangeStrategy
+  ...
+
+RAPPORT FINAL :
+  ├── Performance globale : +38.5%
+  ├── Meilleur bot : Bull Bot Aggro (+42.7% sur segment bull)
+  ├── Pire segment : Bear Aggro segment 1 (-8.1%)
+  ├── Distribution : 35% Bull, 25% Bear, 35% Range, 5% Transition
+  ├── Réallocations : 12 (total 450$ Aggro → Safe)
+  └── Le système dual Safe/Aggro a protégé le capital en bear
 ```
 
 **Améliorations vs existant** :
+- **DataProvider dual-mode** : même interface pour live et backtest
+- **Routage automatique par régime** : chaque segment va au bon bot
+- **Analyse top-down** : le backtest utilise la vraie hiérarchie de timeframes
 - Prise en compte des **frais** et du **slippage**
 - Calcul du **Sharpe Ratio**, **Max Drawdown**, **Profit Factor**
-- **Comparaison de stratégies** côte à côte
-- Courbe d'**equity** pour visualisation
+- Rapport **par régime**, **par bot**, **par profil de risque**
+- Courbe d'**equity** avec zones colorées par régime
 
 ---
 
@@ -480,13 +798,15 @@ class PortfolioManager:
     """Gestionnaire de portefeuille multi-bots avec orchestration par régime."""
 
     def __init__(self, config: PortfolioConfig):
-        # Profils de risque
+        # 4 Profils de risque (spot + levier)
         self.risk_profiles: dict[str, RiskProfile] = {
-            "safe": RiskProfile(ratio=0.01, allocation=0.7),
-            "aggressive": RiskProfile(ratio=0.03, allocation=0.3),
+            "safe":              RiskProfile(ratio=0.01, allocation=0.40, leverage=1),
+            "aggressive":        RiskProfile(ratio=0.03, allocation=0.25, leverage=1),
+            "safe_leverage":     RiskProfile(ratio=0.01, allocation=0.20, leverage=3),
+            "aggressive_leverage":RiskProfile(ratio=0.03, allocation=0.15, leverage=10),
         }
 
-        # Bots spécialistes (1 par régime × profil de risque)
+        # Bots spécialistes (1 par régime × profil de risque = 12 combinaisons)
         self.specialist_bots: dict[tuple[MarketRegime, str], TradingBot] = {}
         self.regime_detector: MarketRegimeDetector
         self.reallocation_ratio: float   # % des gains réalloués (ex: 0.3 = 30%)
@@ -519,64 +839,105 @@ class RiskReducer:
         """Évalue si le risque doit être réduit."""
 ```
 
-**Architecture complète des bots** :
+#### Les 4 profils de risque
 
-```
-                    Market Regime Detector
-                            │
-                ┌───────────┼───────────┐
-                ▼           ▼           ▼
-          ┌──────────┐ ┌──────────┐ ┌──────────┐
-          │ BULL Bot │ │ BEAR Bot │ │RANGE Bot │
-          │          │ │          │ │          │
-          │ Trend    │ │ Défensif │ │ Mean     │
-          │ Following│ │ + Rebonds│ │ Reversion│
-          └────┬─────┘ └────┬─────┘ └────┬─────┘
-               │            │            │
-        ┌──────┴──────┬─────┴──────┬─────┴──────┐
-        ▼             ▼            ▼            ▼
-  ┌───────────┐ ┌───────────┐ ┌──────────┐
-  │ Safe (1%) │ │ Aggro (3%)│ │          │
-  │ profil    │ │ profil    │ │ Réalloc. │
-  │           │ │           │ │ Gains    │
-  └───────────┘ └───────────┘ └──────────┘
-        │             │            │
-        │    gains    │            │
-        │◄────────────┤   30%      │
-        │             │ réalloc    │
+```python
+@dataclass
+class RiskProfile:
+    name: str
+    ratio: float          # % du capital risqué par trade
+    allocation: float     # % du capital total alloué
+    leverage: int         # Effet de levier (1 = spot)
+    max_drawdown: float   # DD max avant pause
+    market_type: str      # "spot" ou "futures"
 ```
 
-**Mécanique de réallocation** :
-```
-┌─────────────────┐         ┌─────────────────┐
-│  Profil Agressif│         │ Profil Sécurit. │
-│                 │         │                  │
-│  Capital: 300$  │  gains  │  Capital: 700$   │
-│  Risk: Max (3%) │────────►│  Risk: Low (1%)  │
-│  Trades: +50$   │  30%    │  Reçoit: +15$    │
-│                 │ réalloc │                  │
-└─────────────────┘         └─────────────────┘
+| Profil | Risque/trade | Allocation | Levier | Marché | Max DD | Description |
+|--------|-------------|-----------|--------|--------|--------|-------------|
+| **Safe** | 1% | 40% | x1 | Spot | 10% | Conservateur, pas de levier |
+| **Aggressive** | 3% | 25% | x1 | Spot | 20% | Plus de risque, spot uniquement |
+| **Safe Leverage** | 1% | 20% | x3 | Futures | 8% | Prudent mais avec levier modéré |
+| **Aggressive Leverage** | 3% | 15% | x10 | Futures | 15% | Maximum de risque + levier élevé |
 
-Ratio configurable : 10% → 50% des gains
-Fréquence : après chaque trade gagnant du profil agressif
-S'applique quel que soit le bot spécialiste actif
+**Pourquoi ces allocations ?**
+- Les profils **spot** (Safe + Aggressive = 65%) gèrent la majorité du capital → stabilité
+- Les profils **leverage** (Safe Lev + Aggro Lev = 35%) gèrent une fraction → exposition amplifiée avec capital limité
+- Le levier x3 safe = rendements amplifiés mais maîtrisés (liquidation lointaine)
+- Le levier x10 aggro = rendements maximum, mais capital réduit (15%) pour limiter les dégâts
+
+**Impact du levier sur le trading** :
+```
+Exemple : BTC @ 60,000$, capital alloué = 150$ (profil Aggro Lev x10)
+
+Position effective = 150$ × 10 = 1,500$ de BTC
+Risque par trade (3%) = 4.50$ de capital réel
+
+Si BTC monte de 2% :
+  └── Sans levier : +3.00$ (+2%)
+  └── Avec x10 :    +30.00$ (+20%)
+
+Si BTC baisse de 2% :
+  └── Sans levier : -3.00$ (-2%)
+  └── Avec x10 :    -30.00$ (-20%)
+
+Prix de liquidation (x10) ≈ 54,000$ (-10%)
+  → Le SL doit TOUJOURS être placé AVANT le prix de liquidation
+  → Marge de sécurité : SL à -7% max pour x10 (liquidation à -10%)
+```
+
+**Sécurités spécifiques au levier** :
+- SL **obligatoire** et placé avant le prix de liquidation (marge de sécurité 30%)
+- Max drawdown **réduit** pour les profils leverage (8% safe lev, 15% aggro lev)
+- **Pas de levier en BEAR market** pour le profil Safe Leverage (risque ÷ 2 automatique)
+- Les profils leverage utilisent les **Futures** (pas le spot avec margin)
+- Monitoring du **funding rate** : si trop élevé, réduire les positions
+
+**Matrice complète : 3 spécialistes × 4 profils = 12 combinaisons** :
+```
+                    ┌────────────┬────────────┬──────────────┬──────────────────┐
+                    │  Safe (x1) │ Aggro (x1) │ Safe Lev (x3)│ Aggro Lev (x10) │
+┌───────────────────┼────────────┼────────────┼──────────────┼──────────────────┤
+│ Bull Bot          │  Bull+Safe │ Bull+Aggro │ Bull+SafeLev │  Bull+AggroLev   │
+│ Bear Bot          │  Bear+Safe │ Bear+Aggro │ Bear+SafeLev │  Bear+AggroLev   │
+│ Range Bot         │ Range+Safe │Range+Aggro │Range+SafeLev │ Range+AggroLev   │
+└───────────────────┴────────────┴────────────┴──────────────┴──────────────────┘
+
+12 combinaisons, mais seules 4 sont actives à la fois
+(1 régime actif × 4 profils de risque)
+```
+
+**Réallocation** : les gains des profils à levier sont redistribués vers les profils sans levier.
+```
+Flux de réallocation (configurable) :
+  Aggressive Leverage ──(30% gains)──► Safe
+  Aggressive          ──(30% gains)──► Safe
+  Safe Leverage        ──(20% gains)──► Safe
+
+Le profil Safe est le "coffre-fort" qui accumule les gains.
+En cas de pertes graves sur les profils levier, le Safe est protégé.
 ```
 
 **Mécanique de réduction de risque** :
 ```
-Pertes consécutives ≥ 3 → Risque ÷ 2
-Pertes consécutives ≥ 5 → Risque ÷ 4 (ou pause trading)
-2 gains consécutifs     → Restauration progressive du risque
+Pertes consécutives ≥ 3 → Risque ÷ 2 (et levier ÷ 2 pour profils leverage)
+Pertes consécutives ≥ 5 → Pause du profil (et fermeture positions leverage)
+2 gains consécutifs     → Restauration progressive
 Applicable par bot spécialiste ET par profil de risque
+
+Spécifique au levier :
+  - Si funding rate > 0.1% → Réduire les positions leverage de 50%
+  - Si volatilité > seuil  → Réduire le levier automatiquement (x10→x5→x3)
+  - Si prix approche liquidation → Fermeture d'urgence AVANT liquidation
 ```
 
 **Gestion des transitions de régime** :
 ```
 Régime change de BULL → BEAR :
-  1. Le Bull Bot ferme ses positions ouvertes (ordres de sortie progressifs)
-  2. Période tampon (TRANSITION) : pas de nouveaux trades
-  3. Le Bear Bot s'active avec le capital disponible
-  4. Les positions du Bull Bot non fermées passent en mode "exit only"
+  1. Les Bull Bots ferment leurs positions (ordres de sortie progressifs)
+  2. Les profils LEVERAGE ferment en PRIORITÉ (risque de liquidation)
+  3. Période tampon (TRANSITION) : pas de nouveaux trades
+  4. Les Bear Bots s'activent avec le capital disponible
+  5. En BEAR, le Safe Leverage passe automatiquement à x1 (pas de levier)
 ```
 
 ---
