@@ -5,7 +5,9 @@
 Transformer le bot monolithique Python/Flask actuel en une **plateforme modulaire de trading crypto** avec :
 - Un **backend Python** performant (moteurs de trading)
 - Une **application mobile/web React Native** (pilotage)
-- Deux bots distincts (sécuritaire + agressif) avec **réallocation automatique des gains**
+- Deux profils de risque (sécuritaire + agressif) avec **réallocation automatique des gains**
+- Trois **bots spécialistes par condition de marché** (Bull / Bear / Range)
+- Un **détecteur de régime de marché** qui orchestre l'activation des bots
 - Un **bot Discord** riche pour les alertes
 - Une architecture **extensible et testable**
 
@@ -189,6 +191,199 @@ class AggressiveStrategy(BaseStrategy):
 
 ---
 
+### 2b. Market Regime Detector (Détecteur de régime de marché)
+
+**Rôle** : Déterminer la condition actuelle du marché (haussier, baissier, latéralisation) pour activer le bot spécialiste le plus adapté.
+
+```python
+class MarketRegime(Enum):
+    """Régimes de marché détectés."""
+    BULL = "bull"           # Tendance haussière confirmée
+    BEAR = "bear"           # Tendance baissière confirmée
+    RANGING = "ranging"     # Latéralisation / consolidation
+    TRANSITION = "transition"  # Phase de transition (incertain)
+
+class MarketRegimeDetector:
+    """Détecte le régime de marché actuel à partir des indicateurs."""
+
+    def __init__(self, config: RegimeConfig):
+        self.lookback_period: int = 50        # Bougies analysées
+        self.confirmation_candles: int = 3    # Bougies de confirmation
+        self.adx_threshold: float = 25.0      # ADX > 25 = tendance
+        self.chop_threshold: float = 61.8     # CHOP > 61.8 = range
+
+    def detect(self, data: pd.DataFrame, indicators: IndicatorResult) -> MarketRegime:
+        """Détecte le régime courant via une combinaison d'indicateurs."""
+
+    def get_regime_confidence(self) -> float:
+        """Confiance dans le régime détecté (0.0 - 1.0)."""
+
+    def get_regime_duration(self) -> int:
+        """Nombre de bougies dans le régime actuel."""
+```
+
+**Critères de détection** :
+
+| Régime | Conditions |
+|--------|-----------|
+| **BULL** | ADX > 25 + EMA20 > EMA50 + MACD positif + Higher Highs/Higher Lows |
+| **BEAR** | ADX > 25 + EMA20 < EMA50 + MACD négatif + Lower Highs/Lower Lows |
+| **RANGING** | ADX < 25 OU CHOP > 61.8 + prix oscille entre support/résistance |
+| **TRANSITION** | Signaux contradictoires, régime précédent en train de changer |
+
+---
+
+### 2c. Bots spécialistes par condition de marché
+
+**Rôle** : Trois stratégies spécialisées, chacune optimisée pour un régime de marché donné.
+
+```python
+class BullMarketStrategy(BaseStrategy):
+    """Spécialiste marché haussier — Trend Following.
+
+    Principe : Acheter sur les replis (supports, retracements Fibonacci)
+    et vendre aux résistances / extensions.
+    """
+
+    def __init__(self):
+        self.preferred_indicators = [
+            "ema",              # Rebond sur EMA20/EMA50 = signal d'achat
+            "fibonacci",        # Achat sur retracement 38.2% / 50% / 61.8%
+            "support_resistance",  # Achat sur support dynamique
+            "macd",             # Confirmation de momentum haussier
+            "volume",           # Volume croissant = confirmation
+        ]
+        self.buy_on_pullback: bool = True       # Acheter les replis, pas les breakouts
+        self.trailing_stop: bool = True         # Trailing SL pour suivre la hausse
+        self.tp_at_resistance: bool = True      # TP aux résistances identifiées
+
+    def should_buy(self, score: float, context: MarketContext) -> bool:
+        """Achète quand le prix touche un support ou un retracement Fibonacci
+        dans une tendance haussière confirmée."""
+
+    def should_sell(self, score: float, context: MarketContext) -> bool:
+        """Vend aux résistances ou quand le trailing stop est touché."""
+
+
+class BearMarketStrategy(BaseStrategy):
+    """Spécialiste marché baissier — Protection & Opportunisme.
+
+    Principe : Réduire l'exposition, shorter si possible, ou acheter
+    uniquement les rebonds techniques courts (dead cat bounce).
+    Essentiellement défensif.
+    """
+
+    def __init__(self):
+        self.preferred_indicators = [
+            "rsi",              # RSI oversold = potentiel rebond technique
+            "bollinger",        # Touche bande basse = survente extrême
+            "volume",           # Capitulation volume = signal de rebond
+            "fear_greed",       # Extreme Fear = potentiel contrarian buy
+            "support_resistance",  # Supports historiques majeurs
+        ]
+        self.reduce_position_size: float = 0.5  # Taille de position ÷ 2
+        self.quick_take_profit: bool = True      # TP rapide (3-5%)
+        self.tight_stop_loss: bool = True        # SL serré (1-1.5%)
+        self.short_enabled: bool = False         # Short selling (futures, optionnel)
+
+    def should_buy(self, score: float, context: MarketContext) -> bool:
+        """Achète uniquement sur survente extrême (RSI < 20, Extreme Fear)
+        pour des rebonds techniques courts."""
+
+    def should_sell(self, score: float, context: MarketContext) -> bool:
+        """Vend rapidement dès qu'un petit gain est atteint (3-5%)."""
+
+
+class RangeStrategy(BaseStrategy):
+    """Spécialiste latéralisation — Range Trading / Mean Reversion.
+
+    Principe : Identifier le range (support/résistance horizontaux),
+    acheter en bas du range, vendre en haut du range.
+    """
+
+    def __init__(self):
+        self.preferred_indicators = [
+            "bollinger",        # Bandes = limites du range
+            "rsi",              # Oscillation RSI 30-70 dans le range
+            "stochastic_rsi",   # Surachat/survente dans le range
+            "support_resistance",  # Bornes du range
+            "choppiness",       # CHOP élevé = range confirmé
+        ]
+        self.range_high: Decimal = Decimal("0")   # Borne haute détectée
+        self.range_low: Decimal = Decimal("0")     # Borne basse détectée
+        self.range_buffer_pct: float = 0.02        # Marge de 2% aux bornes
+        self.mean_reversion: bool = True           # Jouer le retour à la moyenne
+
+    def detect_range(self, data: pd.DataFrame) -> tuple[Decimal, Decimal]:
+        """Détecte les bornes du range via support/résistance horizontaux."""
+
+    def should_buy(self, score: float, context: MarketContext) -> bool:
+        """Achète quand le prix touche le bas du range (support)
+        + RSI/StochRSI en survente."""
+
+    def should_sell(self, score: float, context: MarketContext) -> bool:
+        """Vend quand le prix touche le haut du range (résistance)
+        + RSI/StochRSI en surachat."""
+```
+
+**Comparatif des 3 bots spécialistes** :
+
+| | Bull Bot | Bear Bot | Range Bot |
+|---|---------|----------|-----------|
+| **Régime** | Marché haussier | Marché baissier | Latéralisation |
+| **Principe** | Trend Following | Protection & Rebonds | Mean Reversion |
+| **Achat** | Sur pullbacks / supports | Sur survente extrême | Bas du range |
+| **Vente** | Aux résistances / trailing | Take-profit rapide | Haut du range |
+| **Indicateurs clés** | EMA, Fibonacci, MACD | RSI, Bollinger, Fear&Greed | Bollinger, S/R, StochRSI |
+| **Taille position** | 100% du sizing normal | 50% (réduit) | 75% |
+| **Stop-Loss** | Trailing (suit le prix) | Serré (1-1.5%) | Sous le range (-2%) |
+| **Take-Profit** | Résistance suivante | Rapide (3-5%) | Haut du range |
+| **Fréquence** | Moyenne | Basse (sélectif) | Haute (rebonds fréquents) |
+
+**Orchestration par le Market Regime Detector** :
+
+```
+MarketRegimeDetector
+    │
+    ├── detect() → BULL
+    │   └── Active: BullMarketStrategy
+    │       └── Pondération: 100% Bull Bot
+    │
+    ├── detect() → BEAR
+    │   └── Active: BearMarketStrategy
+    │       └── Pondération: 100% Bear Bot
+    │
+    ├── detect() → RANGING
+    │   └── Active: RangeStrategy
+    │       └── Pondération: 100% Range Bot
+    │
+    └── detect() → TRANSITION
+        └── Mode prudent:
+            ├── Réduire toutes les positions de 50%
+            ├── Pas de nouveaux trades
+            └── Attendre confirmation du nouveau régime
+```
+
+**Interaction avec les profils de risque (Safe/Aggressive)** :
+
+La spécialisation par régime de marché est **orthogonale** au profil de risque :
+
+```
+                    ┌──────────────┬──────────────┐
+                    │  Safe (1%)   │ Aggro (3%)   │
+    ┌───────────────┼──────────────┼──────────────┤
+    │ Bull Bot      │ Bull + Safe  │ Bull + Aggro │
+    │ Bear Bot      │ Bear + Safe  │ Bear + Aggro │
+    │ Range Bot     │ Range + Safe │ Range + Aggro│
+    └───────────────┴──────────────┴──────────────┘
+
+    → 6 combinaisons possibles
+    → Le profil de risque module la TAILLE de la position
+    → La stratégie de marché module la LOGIQUE d'entrée/sortie
+```
+
+---
+
 ### 3. Order Engine (Moteur de passage d'ordres)
 
 **Rôle** : Exécuter les ordres sur les exchanges de manière sécurisée.
@@ -278,17 +473,33 @@ class BacktestResult:
 
 ### 5. Portfolio Manager (Gestionnaire de portefeuille)
 
-**Rôle** : Gérer les deux bots (sécuritaire + agressif) et la réallocation des gains.
+**Rôle** : Gérer les profils de risque (sécuritaire + agressif), les bots spécialistes (bull, bear, range), la réallocation des gains et l'orchestration par régime de marché.
 
 ```python
 class PortfolioManager:
-    """Gestionnaire de portefeuille multi-bots."""
+    """Gestionnaire de portefeuille multi-bots avec orchestration par régime."""
 
     def __init__(self, config: PortfolioConfig):
-        self.safe_bot: TradingBot       # Bot sécuritaire
-        self.aggressive_bot: TradingBot # Bot agressif
-        self.reallocation_ratio: float  # % des gains réalloués (ex: 0.3 = 30%)
+        # Profils de risque
+        self.risk_profiles: dict[str, RiskProfile] = {
+            "safe": RiskProfile(ratio=0.01, allocation=0.7),
+            "aggressive": RiskProfile(ratio=0.03, allocation=0.3),
+        }
+
+        # Bots spécialistes (1 par régime × profil de risque)
+        self.specialist_bots: dict[tuple[MarketRegime, str], TradingBot] = {}
+        self.regime_detector: MarketRegimeDetector
+        self.reallocation_ratio: float   # % des gains réalloués (ex: 0.3 = 30%)
         self.risk_reducer: RiskReducer
+
+    async def orchestrate(self, market_data: pd.DataFrame) -> None:
+        """Boucle principale : détecte le régime et active les bons bots."""
+        regime = self.regime_detector.detect(market_data, indicators)
+        self._activate_bots_for_regime(regime)
+        self._deactivate_bots_for_other_regimes(regime)
+
+    def _activate_bots_for_regime(self, regime: MarketRegime) -> None:
+        """Active les bots spécialistes du régime détecté."""
 
     async def rebalance(self) -> RebalanceResult:
         """Réallocation automatique : gains agressif → capital sécuritaire."""
@@ -308,19 +519,47 @@ class RiskReducer:
         """Évalue si le risque doit être réduit."""
 ```
 
+**Architecture complète des bots** :
+
+```
+                    Market Regime Detector
+                            │
+                ┌───────────┼───────────┐
+                ▼           ▼           ▼
+          ┌──────────┐ ┌──────────┐ ┌──────────┐
+          │ BULL Bot │ │ BEAR Bot │ │RANGE Bot │
+          │          │ │          │ │          │
+          │ Trend    │ │ Défensif │ │ Mean     │
+          │ Following│ │ + Rebonds│ │ Reversion│
+          └────┬─────┘ └────┬─────┘ └────┬─────┘
+               │            │            │
+        ┌──────┴──────┬─────┴──────┬─────┴──────┐
+        ▼             ▼            ▼            ▼
+  ┌───────────┐ ┌───────────┐ ┌──────────┐
+  │ Safe (1%) │ │ Aggro (3%)│ │          │
+  │ profil    │ │ profil    │ │ Réalloc. │
+  │           │ │           │ │ Gains    │
+  └───────────┘ └───────────┘ └──────────┘
+        │             │            │
+        │    gains    │            │
+        │◄────────────┤   30%      │
+        │             │ réalloc    │
+```
+
 **Mécanique de réallocation** :
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│  Bot Agressif   │         │ Bot Sécuritaire  │
+│  Profil Agressif│         │ Profil Sécurit. │
 │                 │         │                  │
 │  Capital: 300$  │  gains  │  Capital: 700$   │
-│  Risk: Max      │────────►│  Risk: Low       │
+│  Risk: Max (3%) │────────►│  Risk: Low (1%)  │
 │  Trades: +50$   │  30%    │  Reçoit: +15$    │
 │                 │ réalloc │                  │
 └─────────────────┘         └─────────────────┘
 
 Ratio configurable : 10% → 50% des gains
-Fréquence : après chaque trade gagnant du bot agressif
+Fréquence : après chaque trade gagnant du profil agressif
+S'applique quel que soit le bot spécialiste actif
 ```
 
 **Mécanique de réduction de risque** :
@@ -328,6 +567,16 @@ Fréquence : après chaque trade gagnant du bot agressif
 Pertes consécutives ≥ 3 → Risque ÷ 2
 Pertes consécutives ≥ 5 → Risque ÷ 4 (ou pause trading)
 2 gains consécutifs     → Restauration progressive du risque
+Applicable par bot spécialiste ET par profil de risque
+```
+
+**Gestion des transitions de régime** :
+```
+Régime change de BULL → BEAR :
+  1. Le Bull Bot ferme ses positions ouvertes (ordres de sortie progressifs)
+  2. Période tampon (TRANSITION) : pas de nouveaux trades
+  3. Le Bear Bot s'active avec le capital disponible
+  4. Les positions du Bull Bot non fermées passent en mode "exit only"
 ```
 
 ---
@@ -400,23 +649,31 @@ Commandes Slash:
 
 Alertes automatiques (Embeds riches):
   🟢 ACHAT  — BTC/USDT @ 67,450$
-  ├── Bot: Agressif
+  ├── Bot: Bull Bot (Agressif)
+  ├── Régime: BULL (confiance 85%)
   ├── Quantité: 0.0045 BTC
-  ├── Stop-Loss: 66,101$ (-2.0%)
-  ├── Take-Profit: 74,195$ (+10.0%)
+  ├── Stop-Loss: 66,101$ (-2.0%) [Trailing]
+  ├── Take-Profit: 74,195$ (+10.0%) [Résistance]
   ├── Risque: 30.00$
   ├── Gain potentiel: 150.00$
   ├── Ratio R/R: 5.0
   ├── Confiance: 78%
-  └── Indicateurs: RSI ✅ MACD ✅ BB ✅ Vol ⚠️
+  └── Indicateurs: RSI ✅ MACD ✅ EMA ✅ Fibo ✅ Vol ⚠️
 
   🔴 VENTE — BTC/USDT @ 74,195$ (+10.0%)
-  ├── Bot: Agressif
+  ├── Bot: Bull Bot (Agressif)
   ├── P&L: +150.00$ (+10.0%)
-  ├── Réallocation: 45.00$ → Bot Sécuritaire
+  ├── Réallocation: 45.00$ → Profil Sécuritaire
   └── Durée: 3j 14h
 
-  ⚠️ RISQUE RÉDUIT — Bot Agressif
+  🔄 RÉGIME CHANGÉ — BULL → RANGING
+  ├── Ancien régime: Bull (durée: 45 jours)
+  ├── Nouveau régime: Ranging
+  ├── Action: Bull Bot → fermeture positions
+  ├── Action: Range Bot → activation
+  └── Range détecté: 65,200$ — 68,800$
+
+  ⚠️ RISQUE RÉDUIT — Range Bot (Agressif)
   ├── Raison: 3 pertes consécutives
   ├── Ancien risque: 3.0%
   └── Nouveau risque: 1.5%
@@ -442,8 +699,9 @@ CREATE TABLE trading_pairs (
 -- Bots de trading
 CREATE TABLE bots (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,            -- ex: "Safe Bot", "Aggressive Bot"
-    type VARCHAR(20) NOT NULL,            -- safe / aggressive
+    name VARCHAR(50) NOT NULL,            -- ex: "Bull Bot Safe", "Range Bot Aggressive"
+    specialist_type VARCHAR(20) NOT NULL, -- bull / bear / range
+    risk_profile VARCHAR(20) NOT NULL,    -- safe / aggressive
     status VARCHAR(20) DEFAULT 'stopped', -- running / stopped / paused
     capital DECIMAL(20,8) NOT NULL,
     risk_level VARCHAR(10) NOT NULL,      -- Low / Mid / Max
@@ -451,6 +709,19 @@ CREATE TABLE bots (
     strategy_config JSONB,                -- Configuration de la stratégie
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Régimes de marché détectés (historique)
+CREATE TABLE market_regimes (
+    id SERIAL PRIMARY KEY,
+    pair_id INTEGER REFERENCES trading_pairs(id),
+    regime VARCHAR(20) NOT NULL,          -- bull / bear / ranging / transition
+    confidence DECIMAL(5,4) NOT NULL,     -- Confiance dans la détection (0-1)
+    detected_at TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,                 -- NULL si régime actif
+    duration_candles INTEGER,             -- Durée en nombre de bougies
+    indicators_snapshot JSONB,            -- État des indicateurs à la détection
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Trades exécutés
@@ -540,14 +811,32 @@ CREATE TABLE ohlcv_data (
   }
 }
 
+// Channel: regime
+{
+  "timestamp": "2026-02-11T14:29:55Z",
+  "pair": "BTCUSDT",
+  "regime": "bull",
+  "previous_regime": "ranging",
+  "confidence": 0.85,
+  "duration_candles": 0,
+  "detection_indicators": {
+    "adx": 32.5,
+    "ema_alignment": "bullish",
+    "macd_trend": "positive",
+    "choppiness": 45.2
+  }
+}
+
 // Channel: signals
 {
   "timestamp": "2026-02-11T14:30:01Z",
   "pair": "BTCUSDT",
   "action": "buy",
   "confidence": 0.78,
-  "strategy": "aggressive",
-  "target_bot": "aggressive_bot"
+  "regime": "bull",
+  "specialist": "bull_bot",
+  "risk_profile": "aggressive",
+  "target_bot": "bull_bot_aggressive"
 }
 
 // Channel: orders
@@ -699,7 +988,8 @@ my_trading_bot/
 │   │   ├── decision_engine.py        # Moteur de décision
 │   │   ├── order_engine.py           # Moteur d'ordres
 │   │   ├── backtest_engine.py        # Moteur de backtesting
-│   │   └── portfolio_manager.py      # Gestionnaire de portefeuille
+│   │   ├── portfolio_manager.py      # Gestionnaire de portefeuille
+│   │   └── market_regime_detector.py # Détecteur de régime de marché
 │   │
 │   ├── indicators/                   # Indicateurs (plugins)
 │   │   ├── base.py                   # BaseIndicator (ABC)
@@ -712,6 +1002,7 @@ my_trading_bot/
 │   │   ├── volume.py
 │   │   ├── fibonacci.py
 │   │   ├── adi.py
+│   │   ├── adx.py                    # ADX (Average Directional Index)
 │   │   ├── support_resistance.py
 │   │   ├── fear_greed.py
 │   │   ├── choppiness.py
@@ -719,8 +1010,11 @@ my_trading_bot/
 │   │
 │   ├── strategies/                   # Stratégies de décision
 │   │   ├── base.py                   # BaseStrategy (ABC)
-│   │   ├── conservative.py           # Stratégie sécuritaire
-│   │   └── aggressive.py             # Stratégie agressive
+│   │   ├── conservative.py           # Profil de risque sécuritaire
+│   │   ├── aggressive.py             # Profil de risque agressif
+│   │   ├── bull_market.py            # Spécialiste marché haussier
+│   │   ├── bear_market.py            # Spécialiste marché baissier
+│   │   └── range_market.py           # Spécialiste latéralisation
 │   │
 │   ├── exchanges/                    # Connecteurs exchange
 │   │   ├── base.py                   # BaseExchange (ABC)
@@ -731,6 +1025,7 @@ my_trading_bot/
 │   │   ├── bot.py
 │   │   ├── trade.py
 │   │   ├── ohlcv.py
+│   │   ├── market_regime.py          # Régimes de marché
 │   │   └── reallocation.py
 │   │
 │   ├── risk/                         # Gestion des risques

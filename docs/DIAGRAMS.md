@@ -20,9 +20,10 @@ graph TB
 
     subgraph Engines["⚙️ Moteurs de Trading"]
         IE["Indicator Engine<br/>15+ indicateurs"]
+        MRD["Market Regime<br/>Detector"]
         DE["Decision Engine<br/>Stratégies"]
         OE["Order Engine<br/>Exécution"]
-        PM["Portfolio Manager<br/>2 Bots + Réallocation"]
+        PM["Portfolio Manager<br/>Bots Spécialistes<br/>+ Réallocation"]
         BE["Backtest Engine<br/>Simulation"]
     end
 
@@ -45,7 +46,9 @@ graph TB
     FA <--> PG
 
     IE -->|indicators| RD
-    RD -->|indicators| DE
+    RD -->|indicators| MRD
+    MRD -->|regime| RD
+    RD -->|indicators+regime| DE
     DE -->|signals| RD
     RD -->|signals| OE
     OE -->|orders| RD
@@ -107,37 +110,63 @@ flowchart LR
 
 ---
 
-## 3. Système de bots (Sécuritaire + Agressif)
+## 3. Système complet de bots (Spécialistes + Profils de risque)
 
 ```mermaid
 flowchart TB
-    subgraph Capital["💰 Capital Total"]
-        TC["1000 USDT"]
+    subgraph Capital["💰 Capital Total: 1000 USDT"]
+        SAFE_POOL["🛡️ Pool Safe: 700 USDT (70%)"]
+        AGGRO_POOL["⚡ Pool Aggro: 300 USDT (30%)"]
     end
 
-    subgraph SafeBot["🛡️ Bot Sécuritaire"]
-        SB_CAP["Capital: 700 USDT<br/>(70%)"]
-        SB_RISK["Risque: Low (1%)"]
-        SB_STRAT["Stratégie Conservative<br/>- Seuils élevés<br/>- Indicateurs confirmés<br/>- Moins de trades"]
+    subgraph Detection["🔍 Market Regime Detector"]
+        MRD["Analyse:<br/>ADX + EMA + MACD + CHOP"]
+        BULL_D["📈 BULL"]
+        BEAR_D["📉 BEAR"]
+        RANGE_D["↔️ RANGING"]
+        TRANS_D["⏳ TRANSITION"]
     end
 
-    subgraph AggroBot["⚡ Bot Agressif"]
-        AB_CAP["Capital: 300 USDT<br/>(30%)"]
-        AB_RISK["Risque: Max (3%)"]
-        AB_STRAT["Stratégie Aggressive<br/>- Seuils bas<br/>- Réactivité haute<br/>- Plus de trades"]
+    subgraph Specialists["🤖 Bots Spécialistes (actif selon régime)"]
+        subgraph BullBots["📈 Bull Bots"]
+            BULL_SAFE["Bull + Safe (1%)<br/>Trend Following prudent"]
+            BULL_AGGRO["Bull + Aggro (3%)<br/>Trend Following agressif"]
+        end
+        subgraph BearBots["📉 Bear Bots"]
+            BEAR_SAFE["Bear + Safe (1%)<br/>Défensif + rebonds"]
+            BEAR_AGGRO["Bear + Aggro (3%)<br/>Short / Rebonds rapides"]
+        end
+        subgraph RangeBots["↔️ Range Bots"]
+            RANGE_SAFE["Range + Safe (1%)<br/>Mean reversion prudent"]
+            RANGE_AGGRO["Range + Aggro (3%)<br/>Mean reversion agressif"]
+        end
     end
 
-    TC -->|70%| SB_CAP
-    TC -->|30%| AB_CAP
+    MRD --> BULL_D
+    MRD --> BEAR_D
+    MRD --> RANGE_D
+    MRD --> TRANS_D
 
-    SB_CAP --> SB_RISK --> SB_STRAT
-    AB_CAP --> AB_RISK --> AB_STRAT
+    BULL_D -->|"active"| BullBots
+    BEAR_D -->|"active"| BearBots
+    RANGE_D -->|"active"| RangeBots
+    TRANS_D -->|"pause tous"| Specialists
 
-    AB_STRAT -->|"🟢 Gain +50$<br/>30% réalloué = 15$"| SB_CAP
-    AB_STRAT -->|"🔴 3 pertes consécutives<br/>Risque ÷ 2"| AB_RISK
+    SAFE_POOL --> BULL_SAFE
+    SAFE_POOL --> BEAR_SAFE
+    SAFE_POOL --> RANGE_SAFE
+    AGGRO_POOL --> BULL_AGGRO
+    AGGRO_POOL --> BEAR_AGGRO
+    AGGRO_POOL --> RANGE_AGGRO
 
-    style SafeBot fill:#d4edda,stroke:#28a745
-    style AggroBot fill:#f8d7da,stroke:#dc3545
+    BULL_AGGRO -->|"🟢 30% gains"| SAFE_POOL
+    BEAR_AGGRO -->|"🟢 30% gains"| SAFE_POOL
+    RANGE_AGGRO -->|"🟢 30% gains"| SAFE_POOL
+
+    style BullBots fill:#d4edda,stroke:#28a745
+    style BearBots fill:#f8d7da,stroke:#dc3545
+    style RangeBots fill:#fff3cd,stroke:#ffc107
+    style Detection fill:#e3f2fd,stroke:#1976d2
 ```
 
 ---
@@ -217,15 +246,34 @@ classDiagram
 
 ---
 
-## 5. Moteur de décision (Pattern Strategy)
+## 5. Moteur de décision (Pattern Strategy) + Bots spécialistes
 
 ```mermaid
 classDiagram
+    class MarketRegimeDetector {
+        -lookback_period: int
+        -adx_threshold: float
+        -chop_threshold: float
+        +detect(data, indicators) MarketRegime
+        +get_regime_confidence() float
+        +get_regime_duration() int
+    }
+
+    class MarketRegime {
+        <<enumeration>>
+        BULL
+        BEAR
+        RANGING
+        TRANSITION
+    }
+
     class DecisionEngine {
         -strategy: BaseStrategy
         -risk_manager: RiskManager
+        -regime_detector: MarketRegimeDetector
         +evaluate(indicators) TradingSignal
         +get_confidence() float
+        +select_strategy(regime) BaseStrategy
     }
 
     class BaseStrategy {
@@ -233,24 +281,55 @@ classDiagram
         +score(indicators) float*
         +should_buy(score, context) bool*
         +should_sell(score, context) bool*
+        +preferred_indicators() List~str~*
     }
 
     class ConservativeStrategy {
         -buy_threshold: 0.7
-        -min_confirming_indicators: 5
+        -min_confirming: 5
         -max_position_pct: 0.01
+    }
+
+    class AggressiveStrategy {
+        -buy_threshold: 0.4
+        -min_confirming: 3
+        -max_position_pct: 0.03
+    }
+
+    class BullMarketStrategy {
+        -buy_on_pullback: bool
+        -trailing_stop: bool
+        -tp_at_resistance: bool
         +score(indicators) float
         +should_buy(score, context) bool
         +should_sell(score, context) bool
     }
 
-    class AggressiveStrategy {
-        -buy_threshold: 0.4
-        -min_confirming_indicators: 3
-        -max_position_pct: 0.03
+    class BearMarketStrategy {
+        -reduce_position_size: 0.5
+        -quick_take_profit: bool
+        -tight_stop_loss: bool
         +score(indicators) float
         +should_buy(score, context) bool
         +should_sell(score, context) bool
+    }
+
+    class RangeStrategy {
+        -range_high: Decimal
+        -range_low: Decimal
+        -mean_reversion: bool
+        +detect_range(data) tuple
+        +score(indicators) float
+        +should_buy(score, context) bool
+        +should_sell(score, context) bool
+    }
+
+    class MarketContext {
+        +fear_greed_index: int
+        +volatility: float
+        +volume_trend: str
+        +timeframe: str
+        +current_regime: MarketRegime
     }
 
     class TradingSignal {
@@ -259,22 +338,24 @@ classDiagram
         +suggested_size: Decimal
         +stop_loss: Decimal
         +take_profit: Decimal
+        +regime: MarketRegime
+        +specialist: str
         +reasoning: List~str~
     }
 
-    class MarketContext {
-        +fear_greed_index: int
-        +volatility: float
-        +volume_trend: str
-        +timeframe: str
-    }
-
+    MarketRegimeDetector ..> MarketRegime : produit
+    DecisionEngine --> MarketRegimeDetector : utilise
     DecisionEngine --> BaseStrategy : utilise
     BaseStrategy <|-- ConservativeStrategy
     BaseStrategy <|-- AggressiveStrategy
+    BaseStrategy <|-- BullMarketStrategy
+    BaseStrategy <|-- BearMarketStrategy
+    BaseStrategy <|-- RangeStrategy
     DecisionEngine ..> TradingSignal : produit
     BaseStrategy ..> MarketContext : consulte
 ```
+
+**Note** : Les stratégies `Conservative` / `Aggressive` sont des **profils de risque** (taille de position, seuils). Les stratégies `Bull` / `Bear` / `Range` sont des **spécialistes de marché** (logique d'entrée/sortie). Un bot combine les deux : par ex. `BullMarketStrategy` + `AggressiveStrategy` = Bull Bot Agressif.
 
 ---
 
@@ -462,7 +543,92 @@ sequenceDiagram
 
 ---
 
-## 10. Comparaison existant vs cible
+## 10. Détection de régime & Activation des bots spécialistes
+
+```mermaid
+flowchart TB
+    subgraph Indicators["📊 Indicateurs de Régime"]
+        ADX["ADX<br/>(force tendance)"]
+        EMA_A["EMA Alignment<br/>(20 vs 50)"]
+        MACD_T["MACD Trend"]
+        CHOP["Choppiness<br/>(consolidation)"]
+        HH_HL["Higher Highs /<br/>Lower Lows"]
+    end
+
+    subgraph Detector["🔍 Market Regime Detector"]
+        EVAL["Évaluation<br/>combinée"]
+        CONF["Calcul confiance<br/>(0.0 - 1.0)"]
+    end
+
+    ADX --> EVAL
+    EMA_A --> EVAL
+    MACD_T --> EVAL
+    CHOP --> EVAL
+    HH_HL --> EVAL
+    EVAL --> CONF
+
+    CONF --> BULL_R{"ADX > 25<br/>EMA20 > EMA50<br/>MACD > 0<br/>HH + HL"}
+    CONF --> BEAR_R{"ADX > 25<br/>EMA20 < EMA50<br/>MACD < 0<br/>LH + LL"}
+    CONF --> RANGE_R{"ADX < 25<br/>ou CHOP > 61.8<br/>Prix en range"}
+    CONF --> TRANS_R{"Signaux<br/>contradictoires"}
+
+    BULL_R -->|"📈 BULL"| BULL_ACT["Active Bull Bots<br/>Safe + Aggressive"]
+    BEAR_R -->|"📉 BEAR"| BEAR_ACT["Active Bear Bots<br/>Safe + Aggressive"]
+    RANGE_R -->|"↔️ RANGE"| RANGE_ACT["Active Range Bots<br/>Safe + Aggressive"]
+    TRANS_R -->|"⏳ TRANSITION"| TRANS_ACT["Mode Prudent<br/>Positions réduites 50%<br/>Pas de nouveaux trades"]
+
+    BULL_ACT --> BULL_LOGIC["Achat: pullbacks + supports<br/>Vente: résistances + trailing SL"]
+    BEAR_ACT --> BEAR_LOGIC["Achat: survente extrême uniquement<br/>Vente: TP rapide 3-5%"]
+    RANGE_ACT --> RANGE_LOGIC["Achat: bas du range + RSI oversold<br/>Vente: haut du range + RSI overbought"]
+
+    style BULL_R fill:#d4edda,stroke:#28a745
+    style BEAR_R fill:#f8d7da,stroke:#dc3545
+    style RANGE_R fill:#fff3cd,stroke:#ffc107
+    style TRANS_R fill:#e2e3e5,stroke:#6c757d
+```
+
+---
+
+## 11. Séquence de changement de régime
+
+```mermaid
+sequenceDiagram
+    participant MRD as Market Regime Detector
+    participant PM as Portfolio Manager
+    participant BB as Bull Bot (actif)
+    participant RB as Range Bot (inactif)
+    participant DC as Discord
+
+    Note over MRD: Régime actuel: BULL
+
+    MRD->>MRD: Nouvelles données → réévaluation
+    MRD->>MRD: ADX passe sous 25, CHOP > 61.8
+    MRD->>PM: Nouveau régime: TRANSITION (confiance: 0.6)
+
+    PM->>BB: Mode "exit only" (pas de nouveaux trades)
+    PM->>DC: ⏳ Régime en transition (BULL → ?)
+
+    Note over MRD: 3 bougies plus tard...
+
+    MRD->>MRD: Confirmation: RANGING (confiance: 0.82)
+    MRD->>PM: Régime confirmé: RANGING
+
+    PM->>BB: Fermer positions ouvertes
+    BB-->>PM: Positions fermées (P&L: +45$)
+    PM->>PM: Réallocation gains Aggro → Safe
+
+    PM->>RB: Activation avec capital disponible
+    RB->>RB: Détection range: 65,200$ — 68,800$
+    PM->>DC: 🔄 Bull Bot → Range Bot<br/>Range: 65,200$ — 68,800$
+
+    Note over RB: Range Bot commence à trader
+    RB->>RB: Prix touche 65,350$ (bas du range)
+    RB->>DC: 🟢 ACHAT Range Bot @ 65,350$
+```
+
+---
+
+## 12. Comparaison existant vs cible
 
 ```mermaid
 graph LR
@@ -482,7 +648,7 @@ graph LR
         T1["Microservices modulaires"]
         T2["React Native multi-plateforme"]
         T3["Redis + PostgreSQL"]
-        T4["2 bots + réallocation"]
+        T4["3 bots spécialistes<br/>+ 2 profils risque<br/>+ réallocation"]
         T5["Config DB + API"]
         T6["Bot Discord riche"]
         T7["Tests complets + CI/CD"]
