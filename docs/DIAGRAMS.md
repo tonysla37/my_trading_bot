@@ -110,63 +110,142 @@ flowchart LR
 
 ---
 
-## 3. Système complet de bots (Spécialistes + Profils de risque)
+## 3. DataProvider dual-mode (Live vs Backtest)
+
+```mermaid
+flowchart LR
+    subgraph LiveMode["🔴 Mode Live (Real-time)"]
+        EX["Exchange<br/>WebSocket/API"]
+        RDP["RealtimeDataProvider"]
+        EX -->|"candles"| RDP
+    end
+
+    subgraph BatchMode["🔵 Mode Backtest (Batch)"]
+        DF["DataFrame<br/>historique"]
+        BDP["BatchDataProvider<br/>(sliding window)"]
+        DF -->|"itération"| BDP
+    end
+
+    subgraph Interface["📡 DataProvider (interface commune)"]
+        GNC["get_next_candle()"]
+        GW["get_window(n)"]
+        GCP["get_current_price()"]
+    end
+
+    RDP --> GNC
+    RDP --> GW
+    RDP --> GCP
+    BDP --> GNC
+    BDP --> GW
+    BDP --> GCP
+
+    subgraph Consumers["🤖 Bots (ne savent pas la source)"]
+        IE["Indicator Engine"]
+        MRD2["Regime Detector"]
+        DE2["Decision Engine"]
+    end
+
+    GNC --> IE
+    GW --> IE
+    GW --> MRD2
+    IE --> DE2
+
+    style LiveMode fill:#ffebee,stroke:#c62828
+    style BatchMode fill:#e3f2fd,stroke:#1976d2
+    style Interface fill:#e8f5e9,stroke:#2e7d32
+```
+
+---
+
+## 4. Système complet de bots (3 Spécialistes × 4 Profils de risque)
 
 ```mermaid
 flowchart TB
     subgraph Capital["💰 Capital Total: 1000 USDT"]
-        SAFE_POOL["🛡️ Pool Safe: 700 USDT (70%)"]
-        AGGRO_POOL["⚡ Pool Aggro: 300 USDT (30%)"]
+        SAFE_P["🛡️ Safe (x1): 400$ (40%)"]
+        AGGRO_P["⚡ Aggro (x1): 250$ (25%)"]
+        SAFE_L["🛡️⚡ Safe Lev (x3): 200$ (20%)"]
+        AGGRO_L["⚡⚡ Aggro Lev (x10): 150$ (15%)"]
     end
 
-    subgraph Detection["🔍 Market Regime Detector"]
-        MRD["Analyse:<br/>ADX + EMA + MACD + CHOP"]
+    subgraph Detection["🔍 Market Regime Detector (top-down)"]
+        TD["Analyse Top-Down:<br/>Monthly → Weekly → Daily → Intraday"]
         BULL_D["📈 BULL"]
         BEAR_D["📉 BEAR"]
         RANGE_D["↔️ RANGING"]
         TRANS_D["⏳ TRANSITION"]
     end
 
-    subgraph Specialists["🤖 Bots Spécialistes (actif selon régime)"]
-        subgraph BullBots["📈 Bull Bots"]
-            BULL_SAFE["Bull + Safe (1%)<br/>Trend Following prudent"]
-            BULL_AGGRO["Bull + Aggro (3%)<br/>Trend Following agressif"]
-        end
-        subgraph BearBots["📉 Bear Bots"]
-            BEAR_SAFE["Bear + Safe (1%)<br/>Défensif + rebonds"]
-            BEAR_AGGRO["Bear + Aggro (3%)<br/>Short / Rebonds rapides"]
-        end
-        subgraph RangeBots["↔️ Range Bots"]
-            RANGE_SAFE["Range + Safe (1%)<br/>Mean reversion prudent"]
-            RANGE_AGGRO["Range + Aggro (3%)<br/>Mean reversion agressif"]
+    subgraph ActiveBots["🤖 Bots Actifs (4 par régime)"]
+        subgraph BullActive["📈 Régime BULL actif"]
+            B1["Bull + Safe (x1)"]
+            B2["Bull + Aggro (x1)"]
+            B3["Bull + Safe Lev (x3)"]
+            B4["Bull + Aggro Lev (x10)"]
         end
     end
 
-    MRD --> BULL_D
-    MRD --> BEAR_D
-    MRD --> RANGE_D
-    MRD --> TRANS_D
+    TD --> BULL_D
+    TD --> BEAR_D
+    TD --> RANGE_D
+    TD --> TRANS_D
 
-    BULL_D -->|"active"| BullBots
-    BEAR_D -->|"active"| BearBots
-    RANGE_D -->|"active"| RangeBots
-    TRANS_D -->|"pause tous"| Specialists
+    BULL_D -->|"active 4 bots"| BullActive
 
-    SAFE_POOL --> BULL_SAFE
-    SAFE_POOL --> BEAR_SAFE
-    SAFE_POOL --> RANGE_SAFE
-    AGGRO_POOL --> BULL_AGGRO
-    AGGRO_POOL --> BEAR_AGGRO
-    AGGRO_POOL --> RANGE_AGGRO
+    SAFE_P --> B1
+    AGGRO_P --> B2
+    SAFE_L --> B3
+    AGGRO_L --> B4
 
-    BULL_AGGRO -->|"🟢 30% gains"| SAFE_POOL
-    BEAR_AGGRO -->|"🟢 30% gains"| SAFE_POOL
-    RANGE_AGGRO -->|"🟢 30% gains"| SAFE_POOL
+    B2 -->|"30% gains"| SAFE_P
+    B3 -->|"20% gains"| SAFE_P
+    B4 -->|"30% gains"| SAFE_P
 
-    style BullBots fill:#d4edda,stroke:#28a745
-    style BearBots fill:#f8d7da,stroke:#dc3545
-    style RangeBots fill:#fff3cd,stroke:#ffc107
+    style BullActive fill:#d4edda,stroke:#28a745
     style Detection fill:#e3f2fd,stroke:#1976d2
+    style Capital fill:#fff3cd,stroke:#ffc107
+```
+
+---
+
+## 4b. Analyse Top-Down Multi-Timeframe
+
+```mermaid
+flowchart TB
+    subgraph TopDown["🔍 Analyse Top-Down (du plus haut au plus bas)"]
+        M["📅 Monthly<br/>Poids: 40%"]
+        W["📅 Weekly<br/>Poids: 25%"]
+        D["📅 Daily<br/>Poids: 20%"]
+        I["📅 Intraday (1H)<br/>Poids: 10%"]
+        S["📅 Scalping (15m)<br/>Poids: 5%"]
+    end
+
+    M -->|"BULL"| W
+    W -->|"BULL"| D
+    D -->|"RANGING"| I
+    I -->|"BEAR (pullback)"| S
+    S -->|"BEAR"| RESULT
+
+    subgraph RESULT["📊 Résultat Pondéré"]
+        CALC["BULL = 0.40 + 0.25 = 0.65<br/>RANGE = 0.20<br/>BEAR = 0.10 + 0.05 = 0.15"]
+        DECISION["Régime global: BULL (65%)<br/>Le pullback intraday = opportunité d'achat"]
+    end
+
+    CALC --> DECISION
+
+    subgraph BotAction["🤖 Actions par Timeframe"]
+        A1["Monthly/Weekly: Bull Bot<br/>positions long terme"]
+        A2["Daily: Range Bot<br/>joue la consolidation"]
+        A3["Intraday: Bull Bot<br/>attend le rebond pour entrer"]
+    end
+
+    DECISION --> A1
+    DECISION --> A2
+    DECISION --> A3
+
+    style TopDown fill:#e3f2fd,stroke:#1976d2
+    style RESULT fill:#e8f5e9,stroke:#2e7d32
+    style BotAction fill:#fff3e0,stroke:#f57c00
 ```
 
 ---
@@ -400,48 +479,69 @@ flowchart TD
 
 ---
 
-## 7. Backtest Engine (Flux)
+## 7. BacktestRouter — Routage par régime sur données historiques
 
 ```mermaid
-flowchart LR
-    subgraph Input["Entrée"]
-        HD["Données historiques<br/>(OHLCV DataFrame)"]
-        ST["Stratégie<br/>à tester"]
-        CF["Configuration<br/>(capital, frais...)"]
+flowchart TB
+    subgraph Input["📥 Données historiques (DataFrame multi-TF)"]
+        DM["Monthly<br/>24 rows"]
+        DW["Weekly<br/>104 rows"]
+        DD["Daily<br/>730 rows"]
+        DI["Intraday<br/>17520 rows"]
     end
 
-    subgraph Process["Traitement"]
-        ITER["Itérer sur<br/>chaque bougie"]
-        CALC["Calculer<br/>indicateurs"]
-        DEC["Prendre<br/>décision"]
-        SIM["Simuler<br/>exécution"]
-        FEE["Appliquer<br/>frais + slippage"]
+    subgraph Step1["1️⃣ BatchDataProvider"]
+        BDP["Sliding Window<br/>Curseurs synchronisés<br/>Le bot ne voit que le passé"]
     end
 
-    subgraph Output["Résultat"]
-        RET["Return total"]
-        DD["Max Drawdown"]
-        SR["Sharpe Ratio"]
-        WR["Win Rate"]
-        PF["Profit Factor"]
-        EC["Equity Curve"]
-        TL["Liste des trades"]
+    subgraph Step2["2️⃣ Détection de régime (top-down batch)"]
+        MRD_B["MarketRegimeDetector.detect_batch()"]
+        SEG["Découpage en segments"]
+        S1["Seg1: BEAR<br/>jan-mai 2022"]
+        S2["Seg2: RANGE<br/>jun-nov 2022"]
+        S3["Seg3: BULL<br/>jan-jul 2023"]
     end
 
-    HD --> ITER
-    ST --> DEC
-    CF --> SIM
+    subgraph Step3["3️⃣ Routage vers bots spécialistes"]
+        BEAR_B["Bear Bot<br/>× 4 profils"]
+        RANGE_B["Range Bot<br/>× 4 profils"]
+        BULL_B["Bull Bot<br/>× 4 profils"]
+    end
 
-    ITER --> CALC --> DEC --> SIM --> FEE
-    FEE -->|"boucle"| ITER
+    subgraph Output["📊 BacktestReport"]
+        GLOBAL["Performance globale"]
+        PER_REG["Performance par régime"]
+        PER_BOT["Performance par bot"]
+        PER_RISK["Performance par profil"]
+        EQ["Equity curve<br/>(zones colorées)"]
+    end
 
-    FEE --> RET
-    FEE --> DD
-    FEE --> SR
-    FEE --> WR
-    FEE --> PF
-    FEE --> EC
-    FEE --> TL
+    DM --> BDP
+    DW --> BDP
+    DD --> BDP
+    DI --> BDP
+
+    BDP --> MRD_B
+    MRD_B --> SEG
+    SEG --> S1
+    SEG --> S2
+    SEG --> S3
+
+    S1 -->|"données bear"| BEAR_B
+    S2 -->|"données range"| RANGE_B
+    S3 -->|"données bull"| BULL_B
+
+    BEAR_B --> GLOBAL
+    RANGE_B --> GLOBAL
+    BULL_B --> GLOBAL
+    GLOBAL --> PER_REG
+    GLOBAL --> PER_BOT
+    GLOBAL --> PER_RISK
+    GLOBAL --> EQ
+
+    style Step1 fill:#e3f2fd,stroke:#1976d2
+    style Step2 fill:#fff3e0,stroke:#f57c00
+    style Step3 fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ---
